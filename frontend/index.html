@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación de Riesgo Renal | AI Health</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>NephroMind</span>
+            </div>
+            <div class="progress-container">
+                <div class="step active" data-step="1" onclick="navigateToStep(1)">
+                    <div class="step-icon"><i class="fa-regular fa-id-card"></i></div>
+                    <div class="step-label">Demografía</div>
+                </div>
+                <div class="step" data-step="2" onclick="navigateToStep(2)">
+                    <div class="step-icon"><i class="fa-solid fa-person-running"></i></div>
+                    <div class="step-label">Estilo de Vida</div>
+                </div>
+                <div class="step" data-step="3" onclick="navigateToStep(3)">
+                    <div class="step-icon"><i class="fa-solid fa-file-medical"></i></div>
+                    <div class="step-label">Historia Clínica</div>
+                </div>
+                <div class="step" data-step="4" onclick="navigateToStep(4)">
+                    <div class="step-icon"><i class="fa-solid fa-flask"></i></div>
+                    <div class="step-label">Laboratorio</div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <header>
+                <h1>Evaluación de Riesgo Renal</h1>
+                <p>Complete el formulario paso a paso para obtener una estimación precisa basada en inteligencia artificial.</p>
+            </header>
+
+            <form id="riskForm">
+                <!-- Step 1: Demografía -->
+                <div class="form-step active" id="step1">
+                    <h2><i class="fa-regular fa-id-card"></i> Datos del Paciente</h2>
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label>Edad</label>
+                            <input type="number" name="Age" required min="0" max="120" placeholder="Ej: 45">
+                        </div>
+                        <div class="input-group">
+                            <label>Género</label>
+                            <select name="Gender">
+                                <option value="0">Masculino</option>
+                                <option value="1">Femenino</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Etnia (Código)</label>
+                            <input type="number" name="Ethnicity" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Nivel Socioeconómico (0-2)</label>
+                            <input type="number" name="SocioeconomicStatus" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Nivel Educativo (0-3)</label>
+                            <input type="number" name="EducationLevel" value="0">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="btn-next" onclick="nextStep(2)">Siguiente <i
+                                class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Estilo de Vida -->
+                <div class="form-step" id="step2">
+                    <h2><i class="fa-solid fa-person-running"></i> Estilo de Vida</h2>
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label>IMC (Índice Masa Corporal)</label>
+                            <input type="number" step="0.1" name="BMI" required placeholder="Ej: 24.5">
+                        </div>
+                        <div class="input-group">
+                            <label>Fumador</label>
+                            <select name="Smoking">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Consumo Alcohol (Unidades/sem)</label>
+                            <input type="number" step="0.1" name="AlcoholConsumption" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Actividad Física (Hrs/sem)</label>
+                            <input type="number" step="0.1" name="PhysicalActivity" value="0">
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="btn-prev" onclick="prevStep(1)">Atrás</button>
+                        <button type="button" class="btn-next" onclick="nextStep(3)">Siguiente <i
+                                class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Historia Clínica -->
+                <div class="form-step" id="step3">
+                    <h2><i class="fa-solid fa-file-medical"></i> Antecedentes Médicos</h2>
+                    <div class="grid-2">
+                        <div class="input-group">
+                            <label>Hist. Fam. Enfermedad Renal</label>
+                            <select name="FamilyHistoryKidneyDisease">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Hist. Fam. Hipertensión</label>
+                            <select name="FamilyHistoryHypertension">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Hist. Fam. Diabetes</label>
+                            <select name="FamilyHistoryDiabetes">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Lesión Renal Aguda Previa</label>
+                            <select name="PreviousAcuteKidneyInjury">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Infecciones Urinarias Recurrentes</label>
+                            <select name="UrinaryTractInfections">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button type="button" class="btn-prev" onclick="prevStep(2)">Atrás</button>
+                        <button type="button" class="btn-next" onclick="nextStep(4)">Siguiente <i
+                                class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Laboratorio -->
+                <div class="form-step" id="step4">
+                    <h2><i class="fa-solid fa-flask"></i> Signos Vitales y Laboratorio</h2>
+                    <div class="grid-3">
+                        <div class="input-group">
+                            <label>Presión Sistólica</label>
+                            <input type="number" name="SystolicBP" required placeholder="mmHg">
+                        </div>
+                        <div class="input-group">
+                            <label>Presión Diastólica</label>
+                            <input type="number" name="DiastolicBP" required placeholder="mmHg">
+                        </div>
+                        <div class="input-group">
+                            <label>Glucosa Ayunas</label>
+                            <input type="number" step="0.1" name="FastingBloodSugar" required placeholder="mg/dL">
+                        </div>
+                        <div class="input-group">
+                            <label>HbA1c (%)</label>
+                            <input type="number" step="0.1" name="HbA1c" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Creatinina Sérica</label>
+                            <input type="number" step="0.01" name="SerumCreatinine" required placeholder="mg/dL">
+                        </div>
+                        <div class="input-group">
+                            <label>BUN</label>
+                            <input type="number" step="0.1" name="BUN" required placeholder="mg/dL">
+                        </div>
+                        <div class="input-group">
+                            <label>GFR (Filtrado Glomerular)</label>
+                            <input type="number" step="0.1" name="GFR" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Proteína en Orina</label>
+                            <input type="number" step="0.1" name="ProteinInUrine" value="0">
+                        </div>
+                        <div class="input-group">
+                            <label>ACR (Albúmina/Creatinina)</label>
+                            <input type="number" step="0.1" name="ACR" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Hidden fields -->
+                    <input type="hidden" name="SerumElectrolytesSodium" value="140">
+                    <input type="hidden" name="SerumElectrolytesPotassium" value="4.5">
+                    <input type="hidden" name="SerumElectrolytesCalcium" value="9.5">
+                    <input type="hidden" name="SerumElectrolytesPhosphorus" value="3.5">
+                    <input type="hidden" name="HemoglobinLevels" value="14">
+                    <input type="hidden" name="CholesterolTotal" value="200">
+                    <input type="hidden" name="CholesterolLDL" value="100">
+                    <input type="hidden" name="CholesterolHDL" value="50">
+                    <input type="hidden" name="CholesterolTriglycerides" value="150">
+                    <input type="hidden" name="ACEInhibitors" value="0">
+                    <input type="hidden" name="Diuretics" value="0">
+                    <input type="hidden" name="NSAIDsUse" value="0">
+                    <input type="hidden" name="Statins" value="0">
+                    <input type="hidden" name="AntidiabeticMedications" value="0">
+                    <input type="hidden" name="Edema" value="0">
+                    <input type="hidden" name="Fatigue" value="0">
+                    <input type="hidden" name="NauseaVomiting" value="0">
+                    <input type="hidden" name="MuscleCramps" value="0">
+                    <input type="hidden" name="Itching" value="0">
+                    <input type="hidden" name="HeavyMetalsExposure" value="0">
+                    <input type="hidden" name="OccupationalExposureChemicals" value="0">
+                    <input type="hidden" name="MedicalCheckupsFrequency" value="1">
+                    <input type="hidden" name="MedicationAdherence" value="5">
+                    <input type="hidden" name="HealthLiteracy" value="5">
+
+                    <div class="actions">
+                        <button type="button" class="btn-prev" onclick="prevStep(3)">Atrás</button>
+                        <button type="submit" class="btn-submit" id="analyzeBtn">Analizar Riesgo</button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="result" class="result-card hidden">
+                <div class="result-header">
+                    <h2>Resultado del Análisis</h2>
+                    <button class="close-result" onclick="resetForm()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="result-body">
+                    <div class="gauge-container">
+                        <div class="gauge-bg"></div>
+                        <div class="gauge-fill" id="gaugeFill"></div>
+                        <div class="gauge-cover">
+                            <span id="probability">0%</span>
+                        </div>
+                    </div>
+                    <div id="riskIndicator" class="risk-badge">
+                        <span id="riskLabel">--</span>
+                    </div>
+                    <p class="disclaimer">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Este resultado es una estimación basada en IA. Consulte siempre a un especialista.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+    <!-- SMART on FHIR Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+    <!-- FHIR Integration -->
+    <script src="fhir-smart.js"></script>
+    <!-- App Logic -->
+    <script src="app.js"></script>
+</body>
+
+</html>
