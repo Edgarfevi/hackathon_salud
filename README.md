@@ -53,7 +53,15 @@ Abrir `frontend/index.html` en un navegador o servir con un servidor HTTP local.
 ### Modelo
 El modelo se entrena automáticamente al iniciar el backend si no existe. Los archivos `.pkl` se guardan en la raíz del proyecto.
 
-> 📖 **Ver [GUIA_DEMO.md](GUIA_DEMO.md) para instrucciones detalladas de demostración**
+## 📖 Guía de Uso Completa
+
+> 📖 **Ver [GUIA_USO.md](GUIA_USO.md) para instrucciones detalladas de uso**
+
+### Inicio Rápido:
+1. **Backend**: Ejecuta `iniciar_backend.bat` o `python -m uvicorn backend.main:app --reload`
+2. **Frontend**: Abre `frontend/index.html` en el navegador
+3. **Demo**: Clic en "Cargar Datos Demo" para probar sin datos reales
+4. **Usar**: Completa el formulario o usa datos demo, luego "Analizar Riesgo"
 
 ## 📁 Estructura del Proyecto
 
