@@ -1,115 +1,60 @@
-# NephroMind - Evaluación de Riesgo Renal con IA
+# NephroMind - Detección de Riesgo de Enfermedad Renal Crónica (CKD)
 
-## 🎯 Reto 2: Boehringer Ingelheim
-**Mejorando la calidad de vida de pacientes con enfermedad renal crónica**
+## 🏥 Descripción del Proyecto
+NephroMind es una herramienta de **Inteligencia Artificial para el cribado preventivo** de la Enfermedad Renal Crónica. Utiliza un modelo de Machine Learning (XGBoost) optimizado para identificar pacientes en riesgo con alta sensibilidad.
 
-Herramienta digital para médicos de atención primaria que permite identificar pacientes con riesgo de enfermedad renal crónica a partir de su historia clínica completa, con integración SMART on FHIR para sistemas informáticos de centros de salud.
+El sistema permite a los profesionales de la salud introducir datos clínicos y obtener una evaluación de riesgo inmediata, junto con una explicación detallada (SHAP) de los factores que influyen en la predicción.
 
-## ✨ Características Principales
+## 🚀 Características Clave
+*   **Alta Sensibilidad (97%)**: Prioriza la detección de enfermos para minimizar falsos negativos.
+*   **Explicabilidad (XAI)**: Muestra qué variables (ej. Creatinina, Edad, Hipertensión) contribuyeron más al diagnóstico.
+*   **Integración FHIR**: Envía los resultados como recursos `RiskAssessment` a un servidor FHIR compatible.
+*   **Visualización**: Gráfico de radar para comparar el perfil del paciente con el promedio.
 
-### 🤖 Inteligencia Artificial
-- Modelo Random Forest entrenado con datos reales
-- Predicción de riesgo de ERC (alto/bajo)
-- Probabilidad calculada con métricas de confianza
-- Preprocesamiento con SMOTE para balanceo de clases
+## 📊 Rendimiento del Modelo (Final)
+El modelo ha sido entrenado y validado con el dataset `Chronic_Kidney_Dsease_data.csv`.
 
-### 🏥 Integración SMART on FHIR
-- Carga automática de datos del paciente desde sistemas hospitalarios
-- Mapeo de códigos estándar (LOINC, SNOMED CT)
-- Prellenado inteligente del formulario
-- Compatible con sistemas de información clínica
-- **Modo Demo**: Datos simulados para demostración sin acceso FHIR real
+| Métrica | Valor | Interpretación |
+| :--- | :--- | :--- |
+| **Exactitud (Accuracy)** | **92.17%** | Acierto global. |
+| **Sensibilidad (Enfermos)** | **97%** | Detecta a 97 de cada 100 enfermos. |
+| **Especificidad (Sanos)** | **33%** | Tasa de falsas alarmas en sanos (aceptable para cribado). |
+| **ROC AUC** | **0.75** | Capacidad de discriminación. |
 
-### 👨‍⚕️ Interfaz para Médicos
-- **Panel de Resumen del Paciente**: Visualización rápida de historia clínica
-- **Formulario Multi-paso**: Interfaz intuitiva y guiada
-- **Recomendaciones Clínicas**: Sugerencias basadas en el nivel de riesgo
-- **Exportación de Resultados**: PDF y JSON para integración con sistemas
+> **Nota**: Se ha priorizado la sensibilidad sobre la especificidad. Esto significa que el modelo es "cauteloso" y prefiere alertar a un paciente sano antes que dejar pasar a uno enfermo.
 
-### 📊 Visualización
-- Medidor visual de riesgo
-- Indicadores de datos cargados desde FHIR
-- Timeline de observaciones y laboratorios
-- Notificaciones en tiempo real
+## 🛠️ Instalación y Uso
 
-## 🚀 Instalación y Uso
+### Requisitos Previos
+*   Docker y Docker Compose
+*   O bien: Python 3.9+ y Node.js (para ejecución local sin Docker)
 
-### Backend
+### Opción 1: Ejecución con Docker (Recomendado)
+1.  Clona el repositorio.
+2.  Ejecuta el siguiente comando en la raíz del proyecto:
+    ```bash
+    docker-compose up --build
+    ```
+3.  Accede a la aplicación en: `http://localhost:80`
+
+### Opción 2: Ejecución Manual
+
+**Backend (API):**
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+python train_model.py  # (Opcional) Para re-entrenar el modelo
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend
+**Frontend (Web):**
+Simplemente abre el archivo `frontend/index.html` en tu navegador o sírvelo con una extensión como "Live Server".
 
-**Opción 1: Live Server (VS Code - Recomendado)**
-- Instala extensión "Live Server" en VS Code
-- Click derecho en `frontend/index.html` → "Open with Live Server"
+## 📂 Estructura del Proyecto
+*   `backend/`: Código Python (FastAPI), Modelo (XGBoost) y scripts de entrenamiento.
+*   `frontend/`: Interfaz web (HTML/JS/CSS) y lógica FHIR.
+*   `archive/`: Datasets utilizados.
+*   `docker-compose.yml`: Orquestación de contenedores.
 
-**Opción 2: Servidor HTTP Python**
-```bash
-cd frontend
-python -m http.server 8080
-# Abre: http://localhost:8080
-```
-
-**Opción 3: Servidor HTTP Node.js**
-```bash
-npm install -g http-server
-cd frontend
-http-server -p 8080
-```
-
-**Opción 4: Abrir Directamente**
-- Doble clic en `frontend/index.html`
-- ⚠️ Algunas funcionalidades pueden no funcionar por CORS
-
-### Modo Demo (Para Demostración)
-1. Abre la aplicación en el navegador
-2. Haz clic en el botón **"Cargar Datos Demo"** en el banner amarillo
-3. Se cargarán datos de ejemplo y podrás demostrar toda la funcionalidad
-4. **No requiere acceso a servidores FHIR reales**
-
-### Modelo
-El modelo se entrena automáticamente al iniciar el backend si no existe. Los archivos `.pkl` se guardan en la raíz del proyecto.
-
-## 📖 Guía de Uso Completa
-
-> 📖 **Ver [GUIA_USO.md](GUIA_USO.md) para instrucciones detalladas de uso**
-
-### Inicio Rápido:
-1. **Backend**: Ejecuta `iniciar_backend.bat` o `python -m uvicorn backend.main:app --reload`
-2. **Frontend**: Abre `frontend/index.html` en el navegador
-3. **Demo**: Clic en "Cargar Datos Demo" para probar sin datos reales
-4. **Usar**: Completa el formulario o usa datos demo, luego "Analizar Riesgo"
-
-## 📁 Estructura del Proyecto
-
-```
-hackathon_salud/
-├── backend/
-│   ├── main.py          # API FastAPI
-│   ├── model.py         # Modelo de ML
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html       # Interfaz principal
-│   ├── style.css        # Estilos
-│   ├── app.js           # Lógica de aplicación
-│   └── fhir-smart.js    # Integración FHIR
-├── archive/
-│   └── Chronic_Kidney_Dsease_data.csv
-└── *.pkl                # Modelos entrenados
-```
-
-## 🔧 Tecnologías
-
-- **Backend**: FastAPI, Python, scikit-learn, pandas
-- **Frontend**: HTML5, CSS3, JavaScript (vanilla)
-- **IA**: Random Forest, SMOTE, StandardScaler
-- **Integración**: SMART on FHIR Client Library
-- **Estándares**: LOINC, SNOMED CT
-
-## 📝 Licencia
-
-Proyecto desarrollado para hackathon de salud organizado por Uniovi.
+## 🤝 Contribuciones
+Desarrollado para el Hackathon de Salud 2025.

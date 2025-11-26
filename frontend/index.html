@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
         rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -41,7 +42,8 @@
         <main class="main-content">
             <header>
                 <h1>Evaluación de Riesgo Renal</h1>
-                <p>Complete el formulario paso a paso para obtener una estimación precisa basada en inteligencia artificial.</p>
+                <p>Complete el formulario paso a paso para obtener una estimación precisa basada en inteligencia
+                    artificial.</p>
                 <div class="demo-mode-banner" id="demoBanner">
                     <i class="fa-solid fa-flask"></i>
                     <span>Modo Demo: Cargar datos de ejemplo para demostración</span>
@@ -318,7 +320,14 @@
                     <div id="riskIndicator" class="risk-badge">
                         <span id="riskLabel">--</span>
                     </div>
-                    
+
+                    <!-- Explicación del Resultado (XAI) -->
+                    <div id="explanationSection" class="explanation-container hidden">
+                        <h3><i class="fa-solid fa-magnifying-glass-chart"></i> ¿Por qué este resultado?</h3>
+                        <p class="explanation-subtitle">Factores principales que influyeron en esta predicción:</p>
+                        <div id="explanationList" class="explanation-list"></div>
+                    </div>
+
                     <!-- Recomendaciones Clínicas -->
                     <div id="clinicalRecommendations" class="recommendations-container">
                         <h3><i class="fa-solid fa-lightbulb"></i> Recomendaciones Clínicas</h3>

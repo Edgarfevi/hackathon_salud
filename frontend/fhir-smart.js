@@ -223,7 +223,7 @@ function displayPatientSummary(patient, observations, conditions, medications) {
 
     // Mostrar panel
     summaryPanel.classList.remove('hidden');
-    
+
     // Ocultar banner demo si estaba visible
     const demoBanner = document.getElementById('demoBanner');
     if (demoBanner) {
@@ -246,14 +246,14 @@ function togglePatientSummary() {
 }
 
 // Función global para notificaciones
-window.showNotification = function(message, type = 'success') {
+window.showNotification = function (message, type = 'success') {
     // Crear notificación temporal
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    
+
     const icon = type === 'success' ? 'fa-circle-check' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-xmark';
     notification.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
-    
+
     document.body.appendChild(notification);
 
     setTimeout(() => {
@@ -402,10 +402,78 @@ if (window.location.search.includes('code=') || window.location.search.includes(
     // Modo standalone (desarrollo/demo)
     console.log('Modo standalone - usando formulario manual');
     showManualForm();
-    
+
     // Mostrar banner de demo si no hay datos FHIR
     const demoBanner = document.getElementById('demoBanner');
     if (demoBanner) {
         demoBanner.classList.remove('hidden');
+    }
+}
+
+// 10. Escribir resultado en FHIR (Write-back)
+async function sendRiskAssessment(predictionResult) {
+    try {
+        const client = await FHIR.oauth2.ready();
+        const patientId = client.patient.id;
+
+        if (!patientId) {
+            console.log('No hay contexto de paciente FHIR activo para guardar el resultado.');
+            return;
+        }
+
+        // Construir recurso RiskAssessment
+        const riskAssessment = {
+            resourceType: "RiskAssessment",
+            status: "final",
+            subject: {
+                reference: `Patient/${patientId}`
+            },
+            occurrenceDateTime: new Date().toISOString(),
+            performer: {
+                display: "NephroMind AI"
+            },
+            basis: [
+                // Aquí podríamos referenciar las observaciones usadas si tuviéramos sus IDs
+            ],
+            prediction: [
+                {
+                    outcome: {
+                        text: "Chronic Kidney Disease"
+                    },
+                    probabilityDecimal: predictionResult.probability,
+                    qualitativeRisk: {
+                        coding: [
+                            {
+                                system: "http://terminology.hl7.org/CodeSystem/risk-probability",
+                                code: predictionResult.risk_class === 1 ? "high" : "low",
+                                display: predictionResult.risk_level
+                            }
+                        ]
+                    }
+                }
+            ],
+            note: [
+                {
+                    text: `Evaluación realizada por NephroMind AI. Factores principales: ${predictionResult.contributors.map(c => c.feature).join(', ')}`
+                }
+            ]
+        };
+
+        console.log('Enviando RiskAssessment a FHIR:', riskAssessment);
+
+        // Crear recurso en el servidor FHIR
+        const result = await client.create(riskAssessment);
+        console.log('RiskAssessment guardado con éxito:', result);
+
+        if (window.showNotification) {
+            window.showNotification('Evaluación guardada en la historia clínica del paciente (FHIR)', 'success');
+        }
+
+    } catch (error) {
+        console.error('Error guardando RiskAssessment en FHIR:', error);
+        // No mostrar error al usuario si es porque no tiene permisos o no está conectado
+        if (window.showNotification && error.message && !error.message.includes('No authorized client')) {
+            window.showNotification('No se pudo guardar en la historia clínica. Verifique permisos.', 'warning');
+        }
     }
 }

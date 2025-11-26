@@ -466,8 +466,10 @@ button {
     padding: 3rem 2.5rem;
     border-radius: 20px;
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-    width: 450px;
+    width: 500px;
     max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
     text-align: center;
     z-index: 100;
     border: 1px solid var(--border);
@@ -732,6 +734,7 @@ button {
         transform: translateX(400px);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -754,7 +757,7 @@ button {
     .main-content {
         padding: 2rem 2.5rem;
     }
-    
+
     .grid-3 {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -830,4 +833,89 @@ button {
         width: 95vw;
         padding: 2rem 1.5rem;
     }
+}
+
+/* Explanation (XAI) */
+.explanation-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: #f0f9ff;
+    border-radius: 12px;
+    border: 1px solid #bae6fd;
+}
+
+.explanation-container h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.explanation-container h3 i {
+    color: var(--primary);
+}
+
+.explanation-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.explanation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.explanation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.explanation-header {
+    display: flex;
+    flex-direction: column;
+}
+
+.feature-name {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: 0.95rem;
+}
+
+.feature-value {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.explanation-impact {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.impact-negative {
+    border-left: 4px solid var(--danger);
+}
+
+.impact-negative .explanation-impact {
+    color: var(--danger);
+}
+
+.impact-positive {
+    border-left: 4px solid var(--success);
+}
+
+.impact-positive .explanation-impact {
+    color: var(--success);
 }

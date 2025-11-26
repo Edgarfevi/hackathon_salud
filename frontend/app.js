@@ -134,20 +134,31 @@ function displayResult(result) {
 
     // Mostrar recomendaciones clínicas
     displayClinicalRecommendations(result);
-    
+
+    // Mostrar explicación (XAI)
+    displayExplanation(result);
+
+    // Mostrar gráfico de radar
+    renderRadarChart(result);
+
     // Guardar resultado para exportación
     window.lastResult = result;
+
+    // Intentar guardar en FHIR (si estamos conectados)
+    if (window.sendRiskAssessment) {
+        window.sendRiskAssessment(result);
+    }
 }
 
 function displayClinicalRecommendations(result) {
     const recommendationsContainer = document.getElementById('clinicalRecommendations');
     const recommendationsList = document.getElementById('recommendationsList');
-    
+
     if (!recommendationsContainer || !recommendationsList) return;
 
     const probability = result.probability;
     const isHighRisk = result.risk_class === 1;
-    
+
     let recommendations = [];
 
     if (isHighRisk || probability > 0.3) {
@@ -195,6 +206,152 @@ function displayClinicalRecommendations(result) {
             <div class="recommendation-text">${rec.text}</div>
         </div>
     `).join('');
+}
+
+function displayExplanation(result) {
+    const container = document.getElementById('explanationSection');
+    const list = document.getElementById('explanationList');
+
+    if (!result.contributors || result.contributors.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    list.innerHTML = result.contributors.map(item => {
+        const impactClass = item.impact > 0 ? 'impact-negative' : 'impact-positive';
+        const impactIcon = item.impact > 0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+        const impactText = item.impact > 0 ? 'Aumenta riesgo' : 'Reduce riesgo';
+
+        // Formatear nombre de la característica para que sea legible
+        const featureName = formatFeatureName(item.feature);
+
+        return `
+            <div class="explanation-item ${impactClass}">
+                <div class="explanation-header">
+                    <span class="feature-name">${featureName}</span>
+                    <span class="feature-value">${item.value.toFixed(2)}</span>
+                </div>
+                <div class="explanation-impact">
+                    <i class="fa-solid ${impactIcon}"></i> ${impactText}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatFeatureName(feature) {
+    const map = {
+        'Age': 'Edad',
+        'BMI': 'IMC',
+        'SystolicBP': 'Presión Sistólica',
+        'DiastolicBP': 'Presión Diastólica',
+        'FastingBloodSugar': 'Glucosa en Ayunas',
+        'HbA1c': 'HbA1c',
+        'SerumCreatinine': 'Creatinina Sérica',
+        'BUN': 'Nitrógeno Ureico (BUN)',
+        'GFR': 'Filtrado Glomerular (GFR)',
+        'ProteinInUrine': 'Proteína en Orina',
+        'ACR': 'Albúmina/Creatinina',
+        'HemoglobinLevels': 'Hemoglobina',
+        'CholesterolTotal': 'Colesterol Total',
+        'CholesterolLDL': 'Colesterol LDL',
+        'CholesterolHDL': 'Colesterol HDL',
+        'CholesterolTriglycerides': 'Triglicéridos'
+    };
+    return map[feature] || feature;
+}
+
+let radarChartInstance = null;
+
+function renderRadarChart(result) {
+    const ctx = document.getElementById('riskRadarChart').getContext('2d');
+
+    // Extraer valores del input original (necesitamos acceder a los datos enviados)
+    // Como 'result' solo tiene la predicción, necesitamos recuperar los datos del formulario
+    // O mejor, pasamos los datos del formulario a esta función.
+    // Por simplicidad, leeremos del DOM ya que el formulario sigue lleno.
+
+    const getData = (name) => parseFloat(document.querySelector(`[name="${name}"]`).value) || 0;
+
+    // Definir métricas clave y sus rangos "normales" aproximados para normalizar
+    // Normalizaremos tal que 50 sea el valor "óptimo/medio", 0 muy bajo, 100 muy alto.
+    // Esto es una simplificación para visualización.
+
+    const metrics = [
+        { label: 'Presión Sistólica', value: getData('SystolicBP'), max: 180, optimal: 120 },
+        { label: 'Glucosa', value: getData('FastingBloodSugar'), max: 200, optimal: 90 },
+        { label: 'HbA1c', value: getData('HbA1c'), max: 12, optimal: 5.5 },
+        { label: 'Creatinina', value: getData('SerumCreatinine'), max: 5, optimal: 0.9 },
+        { label: 'IMC', value: getData('BMI'), max: 40, optimal: 22 },
+        // GFR es inverso: mayor es mejor. Lo invertiremos para el gráfico (100 - valor) o lo mostramos directo
+        // Para consistencia visual (mayor = más riesgo), usaremos 1/GFR o similar, 
+        // PERO para un radar chart médico, mejor mostrar valores normalizados donde el centro es 0 y el borde es max.
+        // Vamos a simplificar: mostrar % del valor máximo peligroso.
+    ];
+
+    const labels = metrics.map(m => m.label);
+    const dataValues = metrics.map(m => {
+        // Normalización simple: (valor / max) * 100
+        let val = (m.value / m.max) * 100;
+        return Math.min(Math.max(val, 0), 100); // Clamp 0-100
+    });
+
+    // Destruir gráfico anterior si existe
+    if (radarChartInstance) {
+        radarChartInstance.destroy();
+    }
+
+    radarChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Estado del Paciente',
+                data: dataValues,
+                fill: true,
+                backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                borderColor: 'rgb(37, 99, 235)',
+                pointBackgroundColor: 'rgb(37, 99, 235)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgb(37, 99, 235)'
+            }, {
+                label: 'Límite de Riesgo',
+                data: [70, 70, 60, 40, 75], // Valores arbitrarios de referencia visual
+                fill: true,
+                backgroundColor: 'rgba(255, 99, 132, 0.0)',
+                borderColor: 'rgba(255, 99, 132, 0.5)',
+                borderDash: [5, 5],
+                pointRadius: 0
+            }]
+        },
+        options: {
+            elements: {
+                line: {
+                    borderWidth: 3
+                }
+            },
+            scales: {
+                r: {
+                    angleLines: {
+                        display: true
+                    },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    ticks: {
+                        display: false // Ocultar números del eje para limpieza visual
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
 }
 
 function exportResults(format) {

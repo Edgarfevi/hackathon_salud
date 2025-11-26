@@ -119,7 +119,8 @@ def predict_risk(data: PatientData):
         return {
             "risk_class": result["prediction"],
             "risk_level": risk_level,
-            "probability": result["probability"]
+            "probability": result["probability"],
+            "contributors": result.get("contributors", [])
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
