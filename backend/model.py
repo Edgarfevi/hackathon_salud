@@ -20,10 +20,9 @@ class KidneyDiseaseModel:
         self.columns = None
         self.explainer = None
         self.threshold = 0.5 # Default threshold
-        # Rutas relativas a la raíz del proyecto
+        # Rutas relativas a la raíz del proyecto (ahora backend/)
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)  # Subir un nivel desde backend/
-        self.full_model_path = os.path.join(project_root, "kidney_model.pkl") # New path for combined model
+        self.full_model_path = os.path.join(current_dir, "kidney_model.pkl")
 
     def load_data(self, filepath):
         df = pd.read_csv(filepath)
@@ -201,56 +200,88 @@ class KidneyDiseaseModel:
             
         input_df = pd.DataFrame([input_data])
         
-        # Ensure columns match
-        # Fill missing columns with 0 or handle appropriately (for now assume complete input)
-        for col in self.columns:
-            if col not in input_df.columns:
-                input_df[col] = 0 # Or raise error
+        # Rename columns to match model expectations
+        rename_map = {
+            "BUN": "BUNLevels",
+            "Fatigue": "FatigueLevels"
+        }
+        input_df = input_df.rename(columns=rename_map)
+
+        # Ensure input has exactly the columns the scaler expects
+        if hasattr(self.scaler, "feature_names_in_"):
+            expected_cols = self.scaler.feature_names_in_
+            # Fill missing
+            for col in expected_cols:
+                if col not in input_df.columns:
+                    input_df[col] = 0
+            # Keep only expected (drop extras like original BUN if renamed, or others)
+            input_df = input_df[expected_cols]
         
-        input_df = input_df[self.columns]
+        # Debug prints
+        print("Final Input columns:", input_df.columns.tolist())
         
-        input_scaled = self.scaler.transform(input_df)
+        # Scale full input (scaler expects all original features)
+        # Note: input_df must have the same columns as the training data (minus dropped ones)
+        try:
+            input_scaled_full = self.scaler.transform(input_df)
+        except ValueError as e:
+             # If feature names mismatch, we might need to reorder or fill
+             return {"error": f"Scaling error: {e}"}
+        
+        # Convert back to DF to select features by name
+        input_scaled_full_df = pd.DataFrame(input_scaled_full, columns=input_df.columns)
+        
+        # Select the 20 features model expects
+        input_selected = input_scaled_full_df[self.columns]
         
         # Predict probability and apply threshold
-        probability = self.model.predict_proba(input_scaled)[0][1] # Probability of class 1 (CKD)
+        probability = self.model.predict_proba(input_selected)[0][1] # Probability of class 1 (CKD)
         prediction = int(probability >= self.threshold)
         
         # Calculate SHAP values
-        shap_values = self.explainer.shap_values(input_scaled)
-        
-        # shap_values is a list for classifiers (one for each class). We want class 1 (CKD).
-        # For binary classification, shap_values[1] contains the impact for class 1.
-        # Note: newer shap versions might return an Explanation object or array depending on version.
-        # TreeExplainer usually returns a list of arrays for classifiers.
-        
-        if isinstance(shap_values, list):
-            class_1_shap = shap_values[1][0] # First instance, class 1
-        else:
-            # If it's just an array (some versions/models)
-            if len(shap_values.shape) == 3:
-                 class_1_shap = shap_values[0, :, 1]
-            else:
-                 class_1_shap = shap_values[0]
-
-        # Map to feature names
-        feature_impact = []
-        for i, col in enumerate(self.columns):
-            impact = class_1_shap[i]
-            feature_impact.append({
-                "feature": col,
-                "impact": float(impact),
-                "value": float(input_df.iloc[0][col])
-            })
+        top_contributors = []
+        try:
+            # SHAP expects the selected features
+            shap_values = self.explainer.shap_values(input_selected)
             
-        # Sort by absolute impact
-        feature_impact.sort(key=lambda x: abs(x["impact"]), reverse=True)
-        
-        # Get top contributors
-        top_contributors = feature_impact[:5] # Top 5 most important factors for this specific patient
+            # shap_values is a list for classifiers (one for each class). We want class 1 (CKD).
+            # For binary classification, shap_values[1] contains the impact for class 1.
+            # Note: newer shap versions might return an Explanation object or array depending on version.
+            # TreeExplainer usually returns a list of arrays for classifiers.
+            
+            if isinstance(shap_values, list):
+                class_1_shap = shap_values[1][0] # First instance, class 1
+            else:
+                # If it's just an array (some versions/models)
+                if len(shap_values.shape) == 3:
+                     class_1_shap = shap_values[0, :, 1]
+                else:
+                     class_1_shap = shap_values[0]
+    
+            # Map to feature names
+            feature_impact = []
+            for i, col in enumerate(self.columns):
+                impact = class_1_shap[i]
+                feature_impact.append({
+                    "feature": col,
+                    "impact": float(impact),
+                    "value": float(input_df.iloc[0][col]) if col in input_df.columns else 0.0
+                })
+                
+            # Sort by absolute impact
+            feature_impact.sort(key=lambda x: abs(x["impact"]), reverse=True)
+            
+            # Get top contributors
+            top_contributors = feature_impact[:5] # Top 5 most important factors for this specific patient
+        except Exception as e:
+            print(f"Error calculating SHAP values: {e}")
+            import traceback
+            traceback.print_exc()
+            # Continue without contributors
 
         return {
-            "prediction": int(prediction[0]),
-            "probability": float(probability[0][1]), # Probability of class 1 (CKD)
+            "prediction": prediction,
+            "probability": float(probability),
             "contributors": top_contributors
         }
 
@@ -264,7 +295,6 @@ if __name__ == "__main__":
     # If in root, data is in archive
     
     possible_paths = [
-        os.path.join(current_dir, "../archive/Chronic_Kidney_Dsease_data.csv"),
         os.path.join(current_dir, "archive/Chronic_Kidney_Dsease_data.csv"),
         "archive/Chronic_Kidney_Dsease_data.csv"
     ]

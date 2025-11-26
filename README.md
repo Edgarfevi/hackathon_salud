@@ -35,7 +35,7 @@ El modelo ha sido entrenado y validado con el dataset `Chronic_Kidney_Dsease_dat
     ```bash
     docker-compose up --build
     ```
-3.  Accede a la aplicación en: `http://localhost:80`
+3.  Accede a la aplicación en: `http://localhost:8080`
 
 ### Opción 2: Ejecución Manual
 

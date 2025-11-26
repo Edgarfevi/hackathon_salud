@@ -114,6 +114,9 @@ def predict_risk(data: PatientData):
         input_data = data.dict()
         result = model.predict(input_data)
         
+        if "error" in result:
+             raise Exception(result["error"])
+        
         risk_level = "High" if result["prediction"] == 1 else "Low"
         
         return {
@@ -123,4 +126,6 @@ def predict_risk(data: PatientData):
             "contributors": result.get("contributors", [])
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
