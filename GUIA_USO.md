@@ -26,14 +26,31 @@ python -m uvicorn main:app --reload
 
 ### Paso 2: Abrir el Frontend
 
-1. Abre el archivo `frontend/index.html` en tu navegador
-2. O sirve con un servidor HTTP local:
-   ```bash
-   # Python
-   cd frontend
-   python -m http.server 8080
-   # Luego abre: http://localhost:8080
-   ```
+**Opción A: Live Server (VS Code - Recomendado)**
+1. Instala la extensión "Live Server" en VS Code
+2. Click derecho en `frontend/index.html`
+3. Selecciona "Open with Live Server"
+4. Se abrirá automáticamente en http://127.0.0.1:5500
+
+**Opción B: Servidor HTTP Python**
+```bash
+cd frontend
+python -m http.server 8080
+# Luego abre: http://localhost:8080
+```
+
+**Opción C: Servidor HTTP Node.js (http-server)**
+```bash
+# Instalar: npm install -g http-server
+cd frontend
+http-server -p 8080
+# Luego abre: http://localhost:8080
+```
+
+**Opción D: Abrir Directamente (Limitado)**
+- Doble clic en `frontend/index.html`
+- ⚠️ **Nota**: Algunas funcionalidades pueden no funcionar por CORS
+- Mejor usar un servidor HTTP local
 
 ## 🎮 Cómo Usar la Aplicación
 
