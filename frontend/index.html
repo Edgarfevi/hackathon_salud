@@ -42,7 +42,77 @@
             <header>
                 <h1>Evaluación de Riesgo Renal</h1>
                 <p>Complete el formulario paso a paso para obtener una estimación precisa basada en inteligencia artificial.</p>
+                <div class="demo-mode-banner" id="demoBanner">
+                    <i class="fa-solid fa-flask"></i>
+                    <span>Modo Demo: Cargar datos de ejemplo para demostración</span>
+                    <button class="btn-demo" onclick="loadDemoData()">
+                        <i class="fa-solid fa-play"></i> Cargar Datos Demo
+                    </button>
+                </div>
             </header>
+
+            <!-- Panel de Resumen del Paciente (visible cuando hay datos FHIR) -->
+            <div id="patientSummary" class="patient-summary hidden">
+                <div class="summary-header">
+                    <h3><i class="fa-solid fa-user-doctor"></i> Resumen del Paciente</h3>
+                    <button class="btn-toggle-summary" onclick="togglePatientSummary()">
+                        <i class="fa-solid fa-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="summary-content" id="summaryContent">
+                    <div class="summary-grid">
+                        <div class="summary-section">
+                            <h4><i class="fa-regular fa-id-card"></i> Datos Demográficos</h4>
+                            <div class="summary-item">
+                                <span class="label">Paciente:</span>
+                                <span id="summaryPatientName">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Edad:</span>
+                                <span id="summaryAge">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Género:</span>
+                                <span id="summaryGender">--</span>
+                            </div>
+                        </div>
+                        <div class="summary-section">
+                            <h4><i class="fa-solid fa-heart-pulse"></i> Signos Vitales Recientes</h4>
+                            <div class="summary-item">
+                                <span class="label">Presión Arterial:</span>
+                                <span id="summaryBP">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">Última medición:</span>
+                                <span id="summaryBPDate">--</span>
+                            </div>
+                        </div>
+                        <div class="summary-section">
+                            <h4><i class="fa-solid fa-flask"></i> Laboratorios Clave</h4>
+                            <div class="summary-item">
+                                <span class="label">Creatinina:</span>
+                                <span id="summaryCreatinine">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">GFR:</span>
+                                <span id="summaryGFR">--</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">HbA1c:</span>
+                                <span id="summaryHbA1c">--</span>
+                            </div>
+                        </div>
+                        <div class="summary-section">
+                            <h4><i class="fa-solid fa-pills"></i> Medicamentos Activos</h4>
+                            <div id="summaryMedications" class="medications-list">--</div>
+                        </div>
+                    </div>
+                    <div class="fhir-status">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Datos cargados desde sistema FHIR</span>
+                    </div>
+                </div>
+            </div>
 
             <form id="riskForm">
                 <!-- Step 1: Demografía -->
@@ -248,6 +318,23 @@
                     <div id="riskIndicator" class="risk-badge">
                         <span id="riskLabel">--</span>
                     </div>
+                    
+                    <!-- Recomendaciones Clínicas -->
+                    <div id="clinicalRecommendations" class="recommendations-container">
+                        <h3><i class="fa-solid fa-lightbulb"></i> Recomendaciones Clínicas</h3>
+                        <div id="recommendationsList" class="recommendations-list"></div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="result-actions">
+                        <button class="btn-export" onclick="exportResults('pdf')">
+                            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                        </button>
+                        <button class="btn-export" onclick="exportResults('json')">
+                            <i class="fa-solid fa-file-code"></i> Exportar JSON
+                        </button>
+                    </div>
+
                     <p class="disclaimer">
                         <i class="fa-solid fa-circle-info"></i>
                         Este resultado es una estimación basada en IA. Consulte siempre a un especialista.

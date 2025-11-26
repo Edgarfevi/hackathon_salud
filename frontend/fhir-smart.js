@@ -53,12 +53,19 @@ async function loadPatientDataFromFHIR(client, patientId) {
         // Pre-llenar el formulario
         populateForm(modelData);
 
+        // Mostrar panel de resumen del paciente
+        displayPatientSummary(patient, observations, conditions, medications);
+
         // Mostrar notificación de éxito
-        showNotification('Datos del paciente cargados desde el sistema hospitalario', 'success');
+        if (window.showNotification) {
+            window.showNotification('Datos del paciente cargados desde el sistema hospitalario', 'success');
+        }
 
     } catch (error) {
         console.error('Error cargando datos FHIR:', error);
-        showNotification('No se pudieron cargar todos los datos. Complete manualmente.', 'warning');
+        if (window.showNotification) {
+            window.showNotification('No se pudieron cargar todos los datos. Complete manualmente o use el modo demo.', 'warning');
+        }
     }
 }
 
@@ -168,27 +175,237 @@ function populateForm(data) {
     }
 }
 
-function showNotification(message, type) {
+// 8. Mostrar resumen del paciente
+function displayPatientSummary(patient, observations, conditions, medications) {
+    const summaryPanel = document.getElementById('patientSummary');
+    if (!summaryPanel) return;
+
+    // Datos demográficos
+    const patientName = `${patient.name?.[0]?.given?.[0] || ''} ${patient.name?.[0]?.family || 'Paciente'}`.trim();
+    const age = calculateAge(patient.birthDate);
+    const gender = patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Femenino' : 'No especificado';
+
+    document.getElementById('summaryPatientName').textContent = patientName || 'Paciente';
+    document.getElementById('summaryAge').textContent = age ? `${age} años` : '--';
+    document.getElementById('summaryGender').textContent = gender;
+
+    // Signos vitales
+    const systolicBP = findLatestObservation(observations, '8480-6');
+    const diastolicBP = findLatestObservation(observations, '8462-4');
+    if (systolicBP && diastolicBP) {
+        document.getElementById('summaryBP').textContent = `${systolicBP}/${diastolicBP} mmHg`;
+    } else {
+        document.getElementById('summaryBP').textContent = 'No disponible';
+    }
+
+    // Laboratorios
+    const creatinine = findLatestObservation(observations, '2160-0');
+    const gfr = findLatestObservation(observations, '33914-3');
+    const hba1c = findLatestObservation(observations, '4548-4');
+
+    document.getElementById('summaryCreatinine').textContent = creatinine ? `${creatinine} mg/dL` : '--';
+    document.getElementById('summaryGFR').textContent = gfr ? `${gfr} mL/min/1.73m²` : '--';
+    document.getElementById('summaryHbA1c').textContent = hba1c ? `${hba1c}%` : '--';
+
+    // Medicamentos
+    const medsList = document.getElementById('summaryMedications');
+    if (medications && medications.entry && medications.entry.length > 0) {
+        medsList.innerHTML = medications.entry.slice(0, 5).map(entry => {
+            const medName = entry.resource.medicationCodeableConcept?.text || 'Medicamento';
+            return `<span class="medication-tag">${medName}</span>`;
+        }).join('');
+        if (medications.entry.length > 5) {
+            medsList.innerHTML += `<span class="medication-tag">+${medications.entry.length - 5} más</span>`;
+        }
+    } else {
+        medsList.textContent = 'No hay medicamentos registrados';
+    }
+
+    // Mostrar panel
+    summaryPanel.classList.remove('hidden');
+    
+    // Ocultar banner demo si estaba visible
+    const demoBanner = document.getElementById('demoBanner');
+    if (demoBanner) {
+        demoBanner.classList.add('hidden');
+    }
+}
+
+function togglePatientSummary() {
+    const content = document.getElementById('summaryContent');
+    const btn = document.querySelector('.btn-toggle-summary i');
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        btn.classList.remove('fa-chevron-down');
+        btn.classList.add('fa-chevron-up');
+    } else {
+        content.classList.add('collapsed');
+        btn.classList.remove('fa-chevron-up');
+        btn.classList.add('fa-chevron-down');
+    }
+}
+
+// Función global para notificaciones
+window.showNotification = function(message, type = 'success') {
     // Crear notificación temporal
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    notification.textContent = message;
+    
+    const icon = type === 'success' ? 'fa-circle-check' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-xmark';
+    notification.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+    
     document.body.appendChild(notification);
 
-    setTimeout(() => notification.remove(), 5000);
-}
+    setTimeout(() => {
+        notification.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+};
 
 function showManualForm() {
     // Mostrar el formulario manual si SMART falla
     document.getElementById('riskForm').style.display = 'block';
 }
 
+// 9. Modo Demo - Cargar datos simulados para demostración
+function loadDemoData() {
+    // Simular datos de un paciente de ejemplo
+    const demoPatient = {
+        name: [{ given: ['María'], family: 'García López' }],
+        birthDate: '1975-03-15',
+        gender: 'female'
+    };
+
+    const demoObservations = {
+        entry: [
+            {
+                resource: {
+                    code: { coding: [{ code: '8480-6' }] },
+                    valueQuantity: { value: 145 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '8462-4' }] },
+                    valueQuantity: { value: 92 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '2160-0' }] },
+                    valueQuantity: { value: 1.35 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '33914-3' }] },
+                    valueQuantity: { value: 58 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '4548-4' }] },
+                    valueQuantity: { value: 6.8 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '1558-6' }] },
+                    valueQuantity: { value: 112 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '3094-0' }] },
+                    valueQuantity: { value: 28 },
+                    effectiveDateTime: new Date().toISOString()
+                }
+            }
+        ]
+    };
+
+    const demoConditions = {
+        entry: [
+            {
+                resource: {
+                    code: {
+                        coding: [{ code: '38341003' }] // Hipertensión
+                    }
+                }
+            },
+            {
+                resource: {
+                    code: {
+                        coding: [{ code: '73211009' }] // Diabetes
+                    }
+                }
+            }
+        ]
+    };
+
+    const demoMedications = {
+        entry: [
+            {
+                resource: {
+                    medicationCodeableConcept: {
+                        text: 'Enalapril 10mg'
+                    }
+                }
+            },
+            {
+                resource: {
+                    medicationCodeableConcept: {
+                        text: 'Metformina 850mg'
+                    }
+                }
+            },
+            {
+                resource: {
+                    medicationCodeableConcept: {
+                        text: 'Atorvastatina 20mg'
+                    }
+                }
+            }
+        ]
+    };
+
+    // Mapear y prellenar
+    const modelData = mapFHIRtoNephroAI(demoPatient, demoObservations, demoConditions, demoMedications);
+    populateForm(modelData);
+    displayPatientSummary(demoPatient, demoObservations, demoConditions, demoMedications);
+
+    // Ocultar banner demo
+    const demoBanner = document.getElementById('demoBanner');
+    if (demoBanner) {
+        demoBanner.classList.add('hidden');
+    }
+
+    // Mostrar notificación
+    if (window.showNotification) {
+        window.showNotification('Datos de demostración cargados. Estos son datos simulados para mostrar la funcionalidad.', 'success');
+    }
+
+    console.log('Datos demo cargados');
+}
+
 // 7. Iniciar cuando la página carga
 if (window.location.search.includes('code=') || window.location.search.includes('iss=')) {
-    // Estamos en un contexto SMART
+    // Estamos en un contexto SMART real
     initSMARTLaunch();
 } else {
-    // Modo standalone (desarrollo)
+    // Modo standalone (desarrollo/demo)
     console.log('Modo standalone - usando formulario manual');
     showManualForm();
+    
+    // Mostrar banner de demo si no hay datos FHIR
+    const demoBanner = document.getElementById('demoBanner');
+    if (demoBanner) {
+        demoBanner.classList.remove('hidden');
+    }
 }
