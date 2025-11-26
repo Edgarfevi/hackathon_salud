@@ -1,9 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from backend.model import KidneyDiseaseModel
 import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import sys
+
+# Añadir el directorio padre al path para importar el modelo
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Intentar importar desde backend.model o model según desde dónde se ejecute
+try:
+    from backend.model import KidneyDiseaseModel
+except ImportError:
+    from model import KidneyDiseaseModel
 
 app = FastAPI(title="CKD Risk Prediction API")
 

@@ -12,9 +12,12 @@ class KidneyDiseaseModel:
         self.model = None
         self.scaler = None
         self.columns = None
-        self.model_path = "ckd_model.pkl"
-        self.scaler_path = "ckd_scaler.pkl"
-        self.columns_path = "ckd_columns.pkl"
+        # Rutas relativas a la raíz del proyecto
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)  # Subir un nivel desde backend/
+        self.model_path = os.path.join(project_root, "ckd_model.pkl")
+        self.scaler_path = os.path.join(project_root, "ckd_scaler.pkl")
+        self.columns_path = os.path.join(project_root, "ckd_columns.pkl")
 
     def load_data(self, filepath):
         df = pd.read_csv(filepath)
