@@ -1,302 +1,423 @@
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split, GridSearchCV
-from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
-from sklearn.feature_selection import RFE
-from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
+"""
+NephroMind - Kidney Disease Risk Prediction Model
+XGBoost classifier optimizado para screening de ERC (alta sensibilidad).
+Incluye explicabilidad con SHAP.
+"""
+
 import os
+import logging
 import joblib
+import numpy as np
+import pandas as pd
+from typing import Dict, Any, List, Optional, Tuple
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import RFE
+from sklearn.metrics import (
+    accuracy_score, classification_report, 
+    confusion_matrix, roc_auc_score
+)
+from xgboost import XGBClassifier
 import shap
 
-class KidneyDiseaseModel:
-    def __init__(self):
-        self.model = None
-        self.scaler = None
-        self.columns = None
-        self.explainer = None
-        self.threshold = 0.5 # Default threshold
-        # Rutas relativas a la raíz del proyecto (ahora backend/)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.full_model_path = os.path.join(current_dir, "kidney_model.pkl")
+# Configuración de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    def load_data(self, filepath):
+
+class KidneyDiseaseModel:
+    """
+    Modelo de predicción de riesgo de Enfermedad Renal Crónica.
+    
+    Características:
+    - XGBoost con class weights para datos desbalanceados
+    - Threshold optimizado para alta sensibilidad (>98%)
+    - Selección de features con RFE
+    - Explicabilidad con SHAP
+    """
+    
+    # Columnas a eliminar del dataset (irrelevantes o target leakage)
+    COLUMNS_TO_DROP = [
+        'PatientID', 'DoctorInCharge',
+        'DietQuality', 'SleepQuality',
+        'WaterQuality', 'QualityOfLifeScore',
+        'GFR',  # El GFR real sería target leakage
+        'TimeToEventMonths'  # Target leakage
+    ]
+    
+    # Mapeo de nombres de columnas del frontend al modelo
+    COLUMN_RENAME_MAP = {
+        'BUN': 'BUNLevels',
+        'Fatigue': 'FatigueLevels'
+    }
+    
+    def __init__(self):
+        """Inicializa el modelo."""
+        self.model: Optional[XGBClassifier] = None
+        self.scaler: Optional[StandardScaler] = None
+        self.columns: Optional[List[str]] = None  # Columnas seleccionadas por RFE
+        self.all_columns: Optional[List[str]] = None  # Todas las columnas del scaler
+        self.explainer: Optional[shap.TreeExplainer] = None
+        self.threshold: float = 0.5
+        
+        # Ruta del modelo
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.model_path = os.path.join(current_dir, "kidney_model.pkl")
+    
+    def load_data(self, filepath: str) -> pd.DataFrame:
+        """
+        Carga y preprocesa el dataset.
+        
+        Args:
+            filepath: Ruta al archivo CSV
+            
+        Returns:
+            DataFrame preprocesado
+        """
+        logger.info(f"Cargando datos desde: {filepath}")
         df = pd.read_csv(filepath)
         
-        # Drop irrelevant columns and target leakage
-        columns_to_drop = [
-            'PatientID', 'DoctorInCharge', 
-            'DietQuality', 'SleepQuality', 
-            'WaterQuality', 'QualityOfLifeScore',
-            'GFR',
-            'TimeToEventMonths' # Target Leakage!
-        ]
-        
-        # Drop only those that exist in the dataframe
-        existing_cols_to_drop = [col for col in columns_to_drop if col in df.columns]
-        df = df.drop(columns=existing_cols_to_drop)
+        # Eliminar columnas irrelevantes
+        cols_to_drop = [col for col in self.COLUMNS_TO_DROP if col in df.columns]
+        df = df.drop(columns=cols_to_drop)
+        logger.info(f"Columnas eliminadas: {cols_to_drop}")
         
         return df
-
-    def train(self, data_path):
-        print("Loading data...")
+    
+    def train(self, data_path: str) -> None:
+        """
+        Entrena el modelo con el dataset especificado.
+        
+        Args:
+            data_path: Ruta al archivo CSV de entrenamiento
+        """
+        logger.info("=" * 50)
+        logger.info("INICIANDO ENTRENAMIENTO DEL MODELO")
+        logger.info("=" * 50)
+        
+        # Cargar datos
         df = self.load_data(data_path)
         
         X = df.drop('Diagnosis', axis=1)
         y = df['Diagnosis']
         
-        self.columns = X.columns.tolist()
+        self.all_columns = X.columns.tolist()
+        logger.info(f"Features totales: {len(self.all_columns)}")
+        logger.info(f"Distribución target: {y.value_counts().to_dict()}")
         
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+        # Split estratificado
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
         
-        # Strategy: Class Weights (No SMOTE)
-        # Calculate scale_pos_weight for XGBoost: sum(negative) / sum(positive)
-        n_pos = sum(y_train)
+        # Calcular pesos de clase
+        n_pos = y_train.sum()
         n_neg = len(y_train) - n_pos
         scale_pos_weight = n_neg / n_pos
-        print(f"Using Class Weights strategy. Calculated scale_pos_weight: {scale_pos_weight:.2f}")
+        logger.info(f"Scale pos weight: {scale_pos_weight:.2f}")
         
-        # Scaling
-        print("Scaling data...")
+        # Escalar datos
+        logger.info("Escalando datos...")
         self.scaler = StandardScaler()
-        X_train_scaled = self.scaler.fit_transform(X_train) # Use original X_train
+        X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
         
-        # Feature Selection (RFE)
-        print("Performing Feature Selection (RFE)...")
-        # Use a lighter model for selection to be faster
+        # Selección de features con RFE
+        logger.info("Seleccionando features con RFE...")
         selector_model = XGBClassifier(
-            n_estimators=100, 
-            max_depth=3, 
-            random_state=42, 
+            n_estimators=100,
+            max_depth=3,
+            random_state=42,
             n_jobs=-1,
             eval_metric='logloss',
-            scale_pos_weight=scale_pos_weight # Use weights here too
+            scale_pos_weight=scale_pos_weight
         )
-        # Select top 20 features
+        
         rfe = RFE(estimator=selector_model, n_features_to_select=20, step=1)
-        rfe.fit(X_train_scaled, y_train) # Use original y_train
+        rfe.fit(X_train_scaled, y_train)
         
-        # Update columns to keep only selected ones
+        # Guardar columnas seleccionadas
         selected_mask = rfe.support_
-        self.columns = np.array(self.columns)[selected_mask].tolist()
-        print(f"Selected {len(self.columns)} features: {self.columns}")
+        self.columns = np.array(self.all_columns)[selected_mask].tolist()
+        logger.info(f"Features seleccionadas ({len(self.columns)}): {self.columns}")
         
-        # Transform data to selected features
+        # Transformar a features seleccionadas
         X_train_selected = rfe.transform(X_train_scaled)
         X_test_selected = rfe.transform(X_test_scaled)
         
-        # Initialize and train final XGBoost model on selected features
-        print("Training XGBoost on selected features...")
+        # Entrenar modelo final
+        logger.info("Entrenando XGBoost...")
         self.model = XGBClassifier(
             n_estimators=200,
             learning_rate=0.1,
-            scale_pos_weight=scale_pos_weight, # Apply class weights
+            scale_pos_weight=scale_pos_weight,
             max_depth=5,
             random_state=42,
             n_jobs=-1,
             eval_metric='logloss'
         )
         self.model.fit(X_train_selected, y_train)
-        print("Training complete.")
         
-        # Threshold Tuning
-        print("Tuning threshold...")
-        y_proba = self.model.predict_proba(X_test_selected)[:, 1]
+        # Optimizar threshold para alta sensibilidad
+        self._optimize_threshold(X_test_selected, y_test)
+        
+        # Inicializar SHAP
+        logger.info("Inicializando SHAP Explainer...")
+        self.explainer = shap.TreeExplainer(self.model)
+        
+        # Evaluar modelo
+        self._evaluate_model(X_test_selected, y_test)
+        
+        # Guardar modelo
+        self.save_model()
+        
+        logger.info("=" * 50)
+        logger.info("ENTRENAMIENTO COMPLETADO")
+        logger.info("=" * 50)
+    
+    def _optimize_threshold(self, X_test: np.ndarray, y_test: pd.Series) -> None:
+        """
+        Optimiza el threshold para maximizar sensibilidad (>98%).
+        
+        Para screening de ERC es CRÍTICO no perder casos positivos.
+        """
+        logger.info("Optimizando threshold para alta sensibilidad...")
+        
+        y_proba = self.model.predict_proba(X_test)[:, 1]
         best_threshold = 0.5
-        best_score = 0
+        best_specificity = 0
+        target_sensitivity = 0.98
         
-        # We want to maximize Specificity (Recall 0) while keeping Sensitivity (Recall 1) high (>0.9)
-        for thresh in np.arange(0.1, 0.95, 0.05):
-            y_pred_temp = (y_proba >= thresh).astype(int)
-            tn, fp, fn, tp = confusion_matrix(y_test, y_pred_temp).ravel()
-            recall_0 = tn / (tn + fp) if (tn + fp) > 0 else 0
-            recall_1 = tp / (tp + fn) if (tp + fn) > 0 else 0
+        # Buscar threshold que logre ≥98% sensibilidad
+        for thresh in np.arange(0.05, 0.90, 0.01):
+            y_pred = (y_proba >= thresh).astype(int)
+            tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
             
-            # Custom score: prioritize Recall 0 but ensure Recall 1 is safe
-            if recall_1 > 0.96:
-                score = recall_0
-                if score > best_score:
-                    best_score = score
+            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            
+            if sensitivity >= target_sensitivity:
+                if specificity > best_specificity:
+                    best_specificity = specificity
+                    best_threshold = thresh
+        
+        # Si no se logra 98%, usar el threshold con máxima sensibilidad
+        if best_specificity == 0:
+            logger.warning("No se logró 98% sensibilidad. Buscando máxima sensibilidad...")
+            max_sensitivity = 0
+            for thresh in np.arange(0.05, 0.90, 0.01):
+                y_pred = (y_proba >= thresh).astype(int)
+                tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+                sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+                
+                if sensitivity > max_sensitivity:
+                    max_sensitivity = sensitivity
                     best_threshold = thresh
         
         self.threshold = best_threshold
-        print(f"Optimal Threshold found: {self.threshold}")
-
-        # Initialize SHAP Explainer
-        print("Initializing SHAP Explainer...")
-        # TreeExplainer is optimized for trees
-        self.explainer = shap.TreeExplainer(self.model)
+        logger.info(f"Threshold óptimo: {self.threshold:.2f}")
+    
+    def _evaluate_model(self, X_test: np.ndarray, y_test: pd.Series) -> None:
+        """Evalúa el modelo y guarda métricas."""
+        logger.info("\n--- EVALUACIÓN DEL MODELO ---")
         
-        # Evaluation
-        print("\n--- Model Evaluation (Test Set) ---")
-        y_pred_proba = self.model.predict_proba(X_test_selected)[:, 1]
+        y_proba = self.model.predict_proba(X_test)[:, 1]
+        y_pred = (y_proba >= self.threshold).astype(int)
         
-        # Apply threshold
-        y_pred_thresholded = (y_pred_proba >= self.threshold).astype(int)
+        accuracy = accuracy_score(y_test, y_pred)
+        roc_auc = roc_auc_score(y_test, y_proba)
+        cm = confusion_matrix(y_test, y_pred)
         
-        accuracy = accuracy_score(y_test, y_pred_thresholded)
-        roc_auc = roc_auc_score(y_test, y_pred_proba)
+        tn, fp, fn, tp = cm.ravel()
+        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
         
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"ROC AUC Score: {roc_auc:.4f}")
-        print("Classification Report:")
-        print(classification_report(y_test, y_pred_thresholded))
-        print("Confusion Matrix:")
-        print(confusion_matrix(y_test, y_pred_thresholded))
-        print("-----------------------------------")
+        logger.info(f"Accuracy: {accuracy:.4f}")
+        logger.info(f"ROC AUC: {roc_auc:.4f}")
+        logger.info(f"Sensibilidad: {sensitivity:.4f}")
+        logger.info(f"Especificidad: {specificity:.4f}")
+        logger.info(f"Threshold: {self.threshold:.2f}")
+        logger.info(f"\nMatriz de confusión:\n{cm}")
+        logger.info(f"\nReporte de clasificación:\n{classification_report(y_test, y_pred)}")
         
-        # Save metrics to file for the report
-        with open("latest_metrics.txt", "w") as f:
+        # Guardar métricas
+        metrics_path = os.path.join(os.path.dirname(self.model_path), "latest_metrics.txt")
+        with open(metrics_path, "w") as f:
             f.write(f"Accuracy: {accuracy:.4f}\n")
             f.write(f"ROC AUC: {roc_auc:.4f}\n")
-            f.write("Classification Report:\n")
-            f.write(classification_report(y_test, y_pred_thresholded))
-            f.write("\nConfusion Matrix:\n")
-            f.write(str(confusion_matrix(y_test, y_pred_thresholded)))
-        
-        self.save_model()
-
-    def save_model(self):
-        model_artifacts = {
+            f.write(f"Sensibilidad: {sensitivity:.4f}\n")
+            f.write(f"Especificidad: {specificity:.4f}\n")
+            f.write(f"Threshold: {self.threshold:.2f}\n")
+            f.write(f"\nClassification Report:\n{classification_report(y_test, y_pred)}")
+            f.write(f"\nConfusion Matrix:\n{cm}")
+    
+    def save_model(self) -> None:
+        """Guarda el modelo y artefactos."""
+        artifacts = {
             'model': self.model,
             'scaler': self.scaler,
             'columns': self.columns,
+            'all_columns': self.all_columns,
             'threshold': self.threshold
         }
-        joblib.dump(model_artifacts, self.full_model_path)
-        print("Model artifacts saved.")
-
-    def load_model(self):
-        if os.path.exists(self.full_model_path):
-            model_artifacts = joblib.load(self.full_model_path)
-            self.model = model_artifacts['model']
-            self.scaler = model_artifacts['scaler']
-            self.columns = model_artifacts['columns']
-            self.threshold = model_artifacts.get('threshold', 0.5) # Load threshold or default to 0.5
+        joblib.dump(artifacts, self.model_path)
+        logger.info(f"Modelo guardado en: {self.model_path}")
+    
+    def load_model(self) -> bool:
+        """
+        Carga el modelo desde disco.
+        
+        Returns:
+            True si se cargó exitosamente, False si no existe
+        """
+        if not os.path.exists(self.model_path):
+            logger.warning(f"No se encontró modelo en: {self.model_path}")
+            return False
+        
+        try:
+            artifacts = joblib.load(self.model_path)
+            self.model = artifacts['model']
+            self.scaler = artifacts['scaler']
+            self.columns = artifacts['columns']
+            self.all_columns = artifacts.get('all_columns', self.columns)
+            self.threshold = artifacts.get('threshold', 0.5)
             
-            # Initialize SHAP explainer
-            print("Initializing SHAP Explainer from loaded model...")
+            # Inicializar SHAP
             try:
                 self.explainer = shap.TreeExplainer(self.model)
             except Exception as e:
-                print(f"Warning: Could not initialize SHAP explainer: {e}")
-                self.explainer = None # Set to None if it fails
+                logger.warning(f"No se pudo inicializar SHAP: {e}")
+                self.explainer = None
             
+            logger.info(f"Modelo cargado. Threshold: {self.threshold}")
             return True
-        return False
-
-    def predict(self, input_data):
-        # input_data should be a dictionary or dataframe
-        if self.model is None:
-            return {"error": "Model not trained or loaded"}
             
-        input_df = pd.DataFrame([input_data])
+        except Exception as e:
+            logger.error(f"Error cargando modelo: {e}")
+            return False
+    
+    def predict(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Realiza una predicción de riesgo de ERC.
         
-        # Rename columns to match model expectations
-        rename_map = {
-            "BUN": "BUNLevels",
-            "Fatigue": "FatigueLevels"
-        }
-        input_df = input_df.rename(columns=rename_map)
-
-        # Ensure input has exactly the columns the scaler expects
-        if hasattr(self.scaler, "feature_names_in_"):
-            expected_cols = self.scaler.feature_names_in_
-            # Fill missing
+        Args:
+            input_data: Diccionario con los datos del paciente
+            
+        Returns:
+            Diccionario con predicción, probabilidad y factores contribuyentes
+        """
+        if self.model is None:
+            return {"error": "Modelo no entrenado o cargado"}
+        
+        try:
+            # Crear DataFrame
+            input_df = pd.DataFrame([input_data])
+            
+            # Renombrar columnas si es necesario
+            input_df = input_df.rename(columns=self.COLUMN_RENAME_MAP)
+            
+            # Obtener columnas esperadas por el scaler
+            if hasattr(self.scaler, 'feature_names_in_'):
+                expected_cols = list(self.scaler.feature_names_in_)
+            else:
+                expected_cols = self.all_columns or self.columns
+            
+            # Asegurar que tenemos todas las columnas
             for col in expected_cols:
                 if col not in input_df.columns:
                     input_df[col] = 0
-            # Keep only expected (drop extras like original BUN if renamed, or others)
+            
+            # Mantener solo las columnas esperadas en el orden correcto
             input_df = input_df[expected_cols]
-        
-        # Debug prints
-        print("Final Input columns:", input_df.columns.tolist())
-        
-        # Scale full input (scaler expects all original features)
-        # Note: input_df must have the same columns as the training data (minus dropped ones)
-        try:
-            input_scaled_full = self.scaler.transform(input_df)
-        except ValueError as e:
-             # If feature names mismatch, we might need to reorder or fill
-             return {"error": f"Scaling error: {e}"}
-        
-        # Convert back to DF to select features by name
-        input_scaled_full_df = pd.DataFrame(input_scaled_full, columns=input_df.columns)
-        
-        # Select the 20 features model expects
-        input_selected = input_scaled_full_df[self.columns]
-        
-        # Predict probability and apply threshold
-        probability = self.model.predict_proba(input_selected)[0][1] # Probability of class 1 (CKD)
-        prediction = int(probability >= self.threshold)
-        
-        # Calculate SHAP values
-        top_contributors = []
-        try:
-            # SHAP expects the selected features
-            shap_values = self.explainer.shap_values(input_selected)
             
-            # shap_values is a list for classifiers (one for each class). We want class 1 (CKD).
-            # For binary classification, shap_values[1] contains the impact for class 1.
-            # Note: newer shap versions might return an Explanation object or array depending on version.
-            # TreeExplainer usually returns a list of arrays for classifiers.
+            logger.debug(f"Columnas de entrada: {input_df.columns.tolist()}")
             
-            if isinstance(shap_values, list):
-                class_1_shap = shap_values[1][0] # First instance, class 1
-            else:
-                # If it's just an array (some versions/models)
-                if len(shap_values.shape) == 3:
-                     class_1_shap = shap_values[0, :, 1]
-                else:
-                     class_1_shap = shap_values[0]
-    
-            # Map to feature names
-            feature_impact = []
-            for i, col in enumerate(self.columns):
-                impact = class_1_shap[i]
-                feature_impact.append({
-                    "feature": col,
-                    "impact": float(impact),
-                    "value": float(input_df.iloc[0][col]) if col in input_df.columns else 0.0
-                })
-                
-            # Sort by absolute impact
-            feature_impact.sort(key=lambda x: abs(x["impact"]), reverse=True)
+            # Escalar
+            input_scaled = self.scaler.transform(input_df)
+            input_scaled_df = pd.DataFrame(input_scaled, columns=expected_cols)
             
-            # Get top contributors
-            top_contributors = feature_impact[:5] # Top 5 most important factors for this specific patient
+            # Seleccionar features del modelo
+            input_selected = input_scaled_df[self.columns]
+            
+            # Predecir
+            probability = float(self.model.predict_proba(input_selected)[0][1])
+            prediction = int(probability >= self.threshold)
+            
+            # Calcular SHAP values
+            contributors = self._get_shap_contributors(input_selected, input_df)
+            
+            return {
+                "prediction": prediction,
+                "probability": probability,
+                "contributors": contributors
+            }
+            
         except Exception as e:
-            print(f"Error calculating SHAP values: {e}")
+            logger.error(f"Error en predicción: {e}")
             import traceback
             traceback.print_exc()
-            # Continue without contributors
+            return {"error": str(e)}
+    
+    def _get_shap_contributors(
+        self, 
+        input_selected: pd.DataFrame, 
+        input_original: pd.DataFrame
+    ) -> List[Dict[str, Any]]:
+        """
+        Calcula los factores que más contribuyen a la predicción usando SHAP.
+        
+        Returns:
+            Lista de los top 5 factores contribuyentes
+        """
+        if self.explainer is None:
+            return []
+        
+        try:
+            shap_values = self.explainer.shap_values(input_selected)
+            
+            # Obtener valores para clase 1 (ERC)
+            if isinstance(shap_values, list):
+                class_1_shap = shap_values[1][0]
+            elif len(shap_values.shape) == 3:
+                class_1_shap = shap_values[0, :, 1]
+            else:
+                class_1_shap = shap_values[0]
+            
+            # Crear lista de impactos
+            impacts = []
+            for i, col in enumerate(self.columns):
+                # Obtener valor original
+                original_value = 0.0
+                if col in input_original.columns:
+                    original_value = float(input_original.iloc[0][col])
+                
+                impacts.append({
+                    "feature": col,
+                    "impact": float(class_1_shap[i]),
+                    "value": original_value
+                })
+            
+            # Ordenar por impacto absoluto
+            impacts.sort(key=lambda x: abs(x["impact"]), reverse=True)
+            
+            return impacts[:5]
+            
+        except Exception as e:
+            logger.warning(f"Error calculando SHAP: {e}")
+            return []
 
-        return {
-            "prediction": prediction,
-            "probability": float(probability),
-            "contributors": top_contributors
-        }
 
+# Entry point para entrenamiento directo
 if __name__ == "__main__":
-    # For testing/initial training
     model = KidneyDiseaseModel()
-    # Determine data path relative to this script
+    
+    # Buscar dataset
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Check if we are in backend dir or root
-    # If in backend, data is in ../archive
     possible_paths = [
-        os.path.join(current_dir, "archive/merged_kidney_data (1).csv"),
-        os.path.join(current_dir, "../backend/archive/merged_kidney_data (1).csv"),
-        "backend/archive/merged_kidney_data (1).csv",
-        os.path.join(current_dir, "archive/normalized_chronic_kidney_disease_data_fin.csv"),
-        "archive/normalized_chronic_kidney_disease_data_fin.csv",
-        os.path.join(current_dir, "archive/Chronic_Kidney_Dsease_data.csv"), # Fallback
+        os.path.join(current_dir, "archive/kidney_data.csv"),
+        os.path.join(current_dir, "archive/Chronic_Kidney_Dsease_data.csv"),
+        "archive/kidney_data.csv",
     ]
     
     data_path = None
@@ -304,9 +425,9 @@ if __name__ == "__main__":
         if os.path.exists(path):
             data_path = path
             break
-            
+    
     if data_path:
-        print(f"Found data at: {data_path}")
+        logger.info(f"Dataset encontrado: {data_path}")
         model.train(data_path)
     else:
-        print(f"Data file not found. Checked: {possible_paths}")
+        logger.error(f"Dataset no encontrado. Rutas buscadas: {possible_paths}")

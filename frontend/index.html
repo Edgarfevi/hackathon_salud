@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluación de Riesgo Renal | AI Health</title>
+    <title>NephroMind | Detección Temprana de ERC</title>
     <link rel="icon" type="image/jpeg" href="logo.jpg">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
@@ -30,28 +30,68 @@
                 </div>
                 <div class="step" data-step="3" onclick="navigateToStep(3)">
                     <div class="step-icon"><i class="fa-solid fa-file-medical"></i></div>
-                    <div class="step-label">Historia Clínica</div>
+                    <div class="step-label">Historial</div>
                 </div>
                 <div class="step" data-step="4" onclick="navigateToStep(4)">
                     <div class="step-icon"><i class="fa-solid fa-flask"></i></div>
                     <div class="step-label">Laboratorio</div>
                 </div>
+                <div class="step" data-step="5" onclick="navigateToStep(5)">
+                    <div class="step-icon"><i class="fa-solid fa-pills"></i></div>
+                    <div class="step-label">Medicación</div>
+                </div>
+            </div>
+
+            <!-- Data Completeness Indicator -->
+            <div class="completeness-indicator" id="completenessIndicator">
+                <div class="completeness-header">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Datos Completos</span>
+                </div>
+                <div class="completeness-bar">
+                    <div class="completeness-fill" id="completenessFill" style="width: 0%"></div>
+                </div>
+                <span class="completeness-text" id="completenessText">0%</span>
+            </div>
+
+            <!-- Missing Data Alerts -->
+            <div class="missing-data-alerts" id="missingDataAlerts">
+                <div class="alert-header">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Datos Críticos Faltantes</span>
+                </div>
+                <ul id="missingDataList"></ul>
             </div>
         </nav>
 
         <main class="main-content">
             <header>
-                <h1>Evaluación de Riesgo Renal</h1>
-                <p>Complete el formulario paso a paso para obtener una estimación precisa basada en inteligencia
-                    artificial.</p>
+                <h1><i class="fa-solid fa-kidneys"></i> NephroMind</h1>
+                <p>Sistema de detección temprana de Enfermedad Renal Crónica para Atención Primaria</p>
             </header>
+
+            <!-- Case Demo Banner - CASO LAURA -->
+            <div class="demo-banner" id="demoBanner">
+                <div class="demo-content">
+                    <div class="demo-icon">
+                        <i class="fa-solid fa-user-nurse"></i>
+                    </div>
+                    <div class="demo-text">
+                        <strong>¿Primera vez?</strong> Prueba con el <span class="highlight-laura">Caso Laura</span> - 
+                        Paciente tipo del 80% que desarrolla ERC sin diagnóstico temprano.
+                    </div>
+                    <button class="btn-demo" onclick="loadLauraCase()">
+                        <i class="fa-solid fa-play"></i> Cargar Caso Demo
+                    </button>
+                </div>
+            </div>
 
             <!-- PDF Upload Zone -->
             <div class="upload-zone" id="dropZone">
                 <div class="upload-content">
                     <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                    <h3>Arrastra tu Historia Clínica (PDF)</h3>
-                    <p>o haz clic para seleccionar</p>
+                    <h3>Arrastra la Historia Clínica (PDF)</h3>
+                    <p>o haz clic para seleccionar archivo</p>
                     <input type="file" id="fileInput" accept=".pdf" style="display: none;">
                 </div>
                 <div class="upload-loading hidden" id="uploadLoading">
@@ -60,38 +100,74 @@
                 </div>
             </div>
 
+            <!-- Interoperability Badge -->
+            <div class="interop-badge">
+                <i class="fa-solid fa-link"></i>
+                <span>Compatible con HL7 FHIR R4 • Interoperable con sistemas de salud</span>
+            </div>
+
+            <!-- Extraction Summary -->
+            <div class="extraction-summary hidden" id="extractionSummary">
+                <div class="summary-header-inline">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Datos extraídos automáticamente del PDF</span>
+                    <button class="btn-close-summary" onclick="document.getElementById('extractionSummary').classList.add('hidden')">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <p class="summary-hint">Los campos resaltados en <span class="highlight-demo">verde</span> fueron rellenados automáticamente. Por favor, revise y complete los datos faltantes.</p>
+            </div>
+
             <form id="riskForm">
                 <!-- Step 1: Demografía -->
                 <div class="form-step active" id="step1">
-                    <h2><i class="fa-regular fa-id-card"></i> Datos del Paciente</h2>
+                    <h2><i class="fa-regular fa-id-card"></i> Datos Demográficos</h2>
                     <div class="grid-2">
                         <div class="input-group">
-                            <label>Edad</label>
-                            <input type="number" name="Age" required min="0" max="120" placeholder="Ej: 45">
+                            <label>Edad <span class="required">*</span></label>
+                            <input type="number" name="Age" required min="0" max="120" placeholder="Ej: 61">
+                            <span class="field-hint">Años cumplidos</span>
                         </div>
                         <div class="input-group">
-                            <label>Género</label>
-                            <select name="Gender">
+                            <label>Género <span class="required">*</span></label>
+                            <select name="Gender" required>
+                                <option value="">Seleccionar...</option>
                                 <option value="0">Masculino</option>
                                 <option value="1">Femenino</option>
                             </select>
                         </div>
                         <div class="input-group">
-                            <label>Etnia (Código)</label>
-                            <input type="number" name="Ethnicity" value="0">
+                            <label>Etnia</label>
+                            <select name="Ethnicity">
+                                <option value="0">Caucásico</option>
+                                <option value="1">Afroamericano</option>
+                                <option value="2">Asiático</option>
+                                <option value="3" selected>Hispano/Latino</option>
+                                <option value="4">Otro</option>
+                            </select>
                         </div>
                         <div class="input-group">
-                            <label>Nivel Socioeconómico (0-2)</label>
-                            <input type="number" name="SocioeconomicStatus" value="0">
+                            <label>Nivel Socioeconómico</label>
+                            <select name="SocioeconomicStatus">
+                                <option value="0">Bajo</option>
+                                <option value="1" selected>Medio</option>
+                                <option value="2">Alto</option>
+                            </select>
                         </div>
                         <div class="input-group">
-                            <label>Nivel Educativo (0-3)</label>
-                            <input type="number" name="EducationLevel" value="0">
+                            <label>Nivel Educativo</label>
+                            <select name="EducationLevel">
+                                <option value="0">Sin estudios</option>
+                                <option value="1" selected>Educación secundaria</option>
+                                <option value="2">Grado universitario</option>
+                                <option value="3">Posgrado</option>
+                            </select>
                         </div>
                     </div>
                     <div class="actions">
-                        <button type="button" class="btn-next" onclick="nextStep(2)">Siguiente <i
-                                class="fa-solid fa-arrow-right"></i></button>
+                        <button type="button" class="btn-next" onclick="nextStep(2)">
+                            Siguiente <i class="fa-solid fa-arrow-right"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -100,159 +176,418 @@
                     <h2><i class="fa-solid fa-person-running"></i> Estilo de Vida</h2>
                     <div class="grid-2">
                         <div class="input-group">
-                            <label>IMC (Índice Masa Corporal)</label>
-                            <input type="number" step="0.1" name="BMI" required placeholder="Ej: 24.5">
+                            <label>IMC (Índice Masa Corporal) <span class="required">*</span></label>
+                            <input type="number" step="0.1" name="BMI" required placeholder="Ej: 24.5" min="10" max="60">
+                            <span class="field-hint">kg/m². Normal: 18.5-24.9</span>
                         </div>
                         <div class="input-group">
                             <label>Fumador</label>
                             <select name="Smoking">
-                                <option value="0">No</option>
+                                <option value="0" selected>No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
                         <div class="input-group">
-                            <label>Consumo Alcohol (Unidades/sem)</label>
-                            <input type="number" step="0.1" name="AlcoholConsumption" value="0">
+                            <label>Consumo de Alcohol</label>
+                            <input type="number" step="0.1" name="AlcoholConsumption" value="0" min="0" max="50">
+                            <span class="field-hint">Unidades por semana</span>
                         </div>
                         <div class="input-group">
-                            <label>Actividad Física (Hrs/sem)</label>
-                            <input type="number" step="0.1" name="PhysicalActivity" value="0">
+                            <label>Actividad Física</label>
+                            <input type="number" step="0.1" name="PhysicalActivity" value="2" min="0" max="40">
+                            <span class="field-hint">Horas por semana</span>
                         </div>
                     </div>
                     <div class="actions">
-                        <button type="button" class="btn-prev" onclick="prevStep(1)">Atrás</button>
-                        <button type="button" class="btn-next" onclick="nextStep(3)">Siguiente <i
-                                class="fa-solid fa-arrow-right"></i></button>
+                        <button type="button" class="btn-prev" onclick="prevStep(1)">
+                            <i class="fa-solid fa-arrow-left"></i> Atrás
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextStep(3)">
+                            Siguiente <i class="fa-solid fa-arrow-right"></i>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Step 3: Historia Clínica -->
+                <!-- Step 3: Historial Médico -->
                 <div class="form-step" id="step3">
-                    <h2><i class="fa-solid fa-file-medical"></i> Antecedentes Médicos</h2>
-                    <div class="grid-2">
-                        <div class="input-group">
-                            <label>Hist. Fam. Enfermedad Renal</label>
-                            <select name="FamilyHistoryKidneyDisease">
+                    <h2><i class="fa-solid fa-file-medical"></i> Historial Médico</h2>
+                    
+                    <h3 class="subsection-title"><i class="fa-solid fa-user"></i> Antecedentes Personales</h3>
+                    <div class="grid-3">
+                        <div class="input-group toggle-group">
+                            <label>Hipertensión (HTA)</label>
+                            <select name="HistoryHTN">
                                 <option value="0">No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label>Hist. Fam. Hipertensión</label>
-                            <select name="FamilyHistoryHypertension">
+                        <div class="input-group toggle-group">
+                            <label>Diabetes</label>
+                            <select name="HistoryDiabetes">
                                 <option value="0">No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label>Hist. Fam. Diabetes</label>
-                            <select name="FamilyHistoryDiabetes">
+                        <div class="input-group toggle-group">
+                            <label>Enfermedad Coronaria</label>
+                            <select name="HistoryCHD">
                                 <option value="0">No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
-                        <div class="input-group">
+                        <div class="input-group toggle-group">
+                            <label>Enfermedad Vascular</label>
+                            <select name="HistoryVascular">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Dislipidemia</label>
+                            <select name="HistoryDLD">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Obesidad</label>
+                            <select name="HistoryObesity">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
                             <label>Lesión Renal Aguda Previa</label>
                             <select name="PreviousAcuteKidneyInjury">
                                 <option value="0">No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
-                        <div class="input-group">
-                            <label>Infecciones Urinarias Recurrentes</label>
+                        <div class="input-group toggle-group">
+                            <label>ITUs Recurrentes</label>
                             <select name="UrinaryTractInfections">
                                 <option value="0">No</option>
                                 <option value="1">Sí</option>
                             </select>
                         </div>
                     </div>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-users"></i> Antecedentes Familiares</h3>
+                    <div class="grid-3">
+                        <div class="input-group toggle-group">
+                            <label>Enf. Renal Familiar</label>
+                            <select name="FamilyHistoryKidneyDisease">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Hipertensión Familiar</label>
+                            <select name="FamilyHistoryHypertension">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Diabetes Familiar</label>
+                            <select name="FamilyHistoryDiabetes">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="actions">
-                        <button type="button" class="btn-prev" onclick="prevStep(2)">Atrás</button>
-                        <button type="button" class="btn-next" onclick="nextStep(4)">Siguiente <i
-                                class="fa-solid fa-arrow-right"></i></button>
+                        <button type="button" class="btn-prev" onclick="prevStep(2)">
+                            <i class="fa-solid fa-arrow-left"></i> Atrás
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextStep(4)">
+                            Siguiente <i class="fa-solid fa-arrow-right"></i>
+                        </button>
                     </div>
                 </div>
 
                 <!-- Step 4: Laboratorio -->
                 <div class="form-step" id="step4">
-                    <h2><i class="fa-solid fa-flask"></i> Signos Vitales y Laboratorio</h2>
+                    <h2><i class="fa-solid fa-flask"></i> Valores de Laboratorio</h2>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-heart-pulse"></i> Signos Vitales</h3>
                     <div class="grid-3">
                         <div class="input-group">
-                            <label>Presión Sistólica</label>
-                            <input type="number" name="SystolicBP" required placeholder="mmHg">
+                            <label>Presión Sistólica <span class="required">*</span></label>
+                            <input type="number" name="SystolicBP" required placeholder="120" min="60" max="250">
+                            <span class="field-hint">mmHg. Normal: &lt;120</span>
                         </div>
                         <div class="input-group">
-                            <label>Presión Diastólica</label>
-                            <input type="number" name="DiastolicBP" required placeholder="mmHg">
-                        </div>
-                        <div class="input-group">
-                            <label>Glucosa Ayunas</label>
-                            <input type="number" step="0.1" name="FastingBloodSugar" required placeholder="mg/dL">
-                        </div>
-                        <div class="input-group">
-                            <label>HbA1c (%)</label>
-                            <input type="number" step="0.1" name="HbA1c" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Creatinina Sérica</label>
-                            <input type="number" step="0.01" name="SerumCreatinine" required placeholder="mg/dL">
-                        </div>
-                        <div class="input-group">
-                            <label>BUN</label>
-                            <input type="number" step="0.1" name="BUN" required placeholder="mg/dL">
-                        </div>
-                        <div class="input-group">
-                            <label>GFR (Filtrado Glomerular)</label>
-                            <input type="number" step="0.1" name="GFR" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Proteína en Orina</label>
-                            <input type="number" step="0.1" name="ProteinInUrine" value="0">
-                        </div>
-                        <div class="input-group">
-                            <label>ACR (Albúmina/Creatinina)</label>
-                            <input type="number" step="0.1" name="ACR" value="0">
+                            <label>Presión Diastólica <span class="required">*</span></label>
+                            <input type="number" name="DiastolicBP" required placeholder="80" min="40" max="150">
+                            <span class="field-hint">mmHg. Normal: &lt;80</span>
                         </div>
                     </div>
 
-                    <!-- Hidden fields -->
-                    <input type="hidden" name="SerumElectrolytesSodium" value="140">
-                    <input type="hidden" name="SerumElectrolytesPotassium" value="4.5">
-                    <input type="hidden" name="SerumElectrolytesCalcium" value="9.5">
-                    <input type="hidden" name="SerumElectrolytesPhosphorus" value="3.5">
-                    <input type="hidden" name="HemoglobinLevels" value="14">
-                    <input type="hidden" name="CholesterolTotal" value="200">
-                    <input type="hidden" name="CholesterolLDL" value="100">
-                    <input type="hidden" name="CholesterolHDL" value="50">
-                    <input type="hidden" name="CholesterolTriglycerides" value="150">
-                    <input type="hidden" name="ACEInhibitors" value="0">
-                    <input type="hidden" name="Diuretics" value="0">
-                    <input type="hidden" name="NSAIDsUse" value="0">
-                    <input type="hidden" name="Statins" value="0">
-                    <input type="hidden" name="AntidiabeticMedications" value="0">
-                    <input type="hidden" name="Edema" value="0">
-                    <input type="hidden" name="Fatigue" value="0">
-                    <input type="hidden" name="NauseaVomiting" value="0">
-                    <input type="hidden" name="MuscleCramps" value="0">
-                    <input type="hidden" name="Itching" value="0">
-                    <input type="hidden" name="HeavyMetalsExposure" value="0">
-                    <input type="hidden" name="OccupationalExposureChemicals" value="0">
-                    <input type="hidden" name="MedicalCheckupsFrequency" value="1">
-                    <input type="hidden" name="MedicationAdherence" value="5">
-                    <input type="hidden" name="HealthLiteracy" value="5">
+                    <h3 class="subsection-title"><i class="fa-solid fa-droplet"></i> Glucemia</h3>
+                    <div class="grid-3">
+                        <div class="input-group">
+                            <label>Glucosa Ayunas <span class="required">*</span></label>
+                            <input type="number" step="0.1" name="FastingBloodSugar" required placeholder="90" min="40" max="500">
+                            <span class="field-hint">mg/dL. Normal: 70-100</span>
+                        </div>
+                        <div class="input-group">
+                            <label>HbA1c</label>
+                            <input type="number" step="0.1" name="HbA1c" placeholder="5.5" min="3" max="15">
+                            <span class="field-hint">%. Normal: &lt;5.7</span>
+                        </div>
+                    </div>
+
+                    <h3 class="subsection-title critical-section"><i class="fa-solid fa-kidneys"></i> Función Renal (CRÍTICO)</h3>
+                    <div class="critical-alert">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span>Estos valores son esenciales para la evaluación de ERC</span>
+                    </div>
+                    <div class="grid-3">
+                        <div class="input-group highlight-critical">
+                            <label>Creatinina Sérica <span class="required">*</span></label>
+                            <input type="number" step="0.01" name="SerumCreatinine" required placeholder="1.0" min="0.1" max="20" id="creatinineInput">
+                            <span class="field-hint">mg/dL. Normal: 0.7-1.3</span>
+                        </div>
+                        <div class="input-group highlight-critical">
+                            <label>eGFR (Auto-calculado)</label>
+                            <input type="number" step="0.1" name="GFR" placeholder="Calculado" id="gfrInput" readonly>
+                            <span class="field-hint" id="gfrStage">ml/min/1.73m²</span>
+                        </div>
+                        <div class="input-group">
+                            <label>BUN (Nitrógeno Ureico)</label>
+                            <input type="number" step="0.1" name="BUN" placeholder="15" min="1" max="150">
+                            <span class="field-hint">mg/dL. Normal: 7-20</span>
+                        </div>
+                        <div class="input-group highlight-critical">
+                            <label>Proteína en Orina</label>
+                            <input type="number" step="0.1" name="ProteinInUrine" placeholder="0" min="0" max="10">
+                            <span class="field-hint">g/L. Normal: &lt;0.15</span>
+                        </div>
+                        <div class="input-group highlight-critical">
+                            <label>ACR (Albúmina/Creatinina)</label>
+                            <input type="number" step="0.1" name="ACR" placeholder="15" min="0" max="5000" id="acrInput">
+                            <span class="field-hint" id="acrStage">mg/g. Normal: &lt;30</span>
+                        </div>
+                    </div>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-vial"></i> Electrolitos y Otros</h3>
+                    <div class="grid-3">
+                        <div class="input-group">
+                            <label>Sodio</label>
+                            <input type="number" step="0.1" name="SerumElectrolytesSodium" placeholder="140" value="140">
+                            <span class="field-hint">mEq/L. Normal: 136-145</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Potasio</label>
+                            <input type="number" step="0.1" name="SerumElectrolytesPotassium" placeholder="4.5" value="4.5">
+                            <span class="field-hint">mEq/L. Normal: 3.5-5.0</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Calcio</label>
+                            <input type="number" step="0.1" name="SerumElectrolytesCalcium" placeholder="9.5" value="9.5">
+                            <span class="field-hint">mg/dL. Normal: 8.5-10.5</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Fósforo</label>
+                            <input type="number" step="0.1" name="SerumElectrolytesPhosphorus" placeholder="3.5" value="3.5">
+                            <span class="field-hint">mg/dL. Normal: 2.5-4.5</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Hemoglobina</label>
+                            <input type="number" step="0.1" name="HemoglobinLevels" placeholder="14" value="14">
+                            <span class="field-hint">g/dL. Normal: 12-17</span>
+                        </div>
+                    </div>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-chart-line"></i> Perfil Lipídico</h3>
+                    <div class="grid-3">
+                        <div class="input-group">
+                            <label>Colesterol Total</label>
+                            <input type="number" name="CholesterolTotal" placeholder="200" value="200">
+                            <span class="field-hint">mg/dL. Normal: &lt;200</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Colesterol LDL</label>
+                            <input type="number" name="CholesterolLDL" placeholder="100" value="100">
+                            <span class="field-hint">mg/dL. Normal: &lt;100</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Colesterol HDL</label>
+                            <input type="number" name="CholesterolHDL" placeholder="50" value="50">
+                            <span class="field-hint">mg/dL. Normal: &gt;40</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Triglicéridos</label>
+                            <input type="number" name="CholesterolTriglycerides" placeholder="150" value="150">
+                            <span class="field-hint">mg/dL. Normal: &lt;150</span>
+                        </div>
+                    </div>
 
                     <div class="actions">
-                        <button type="button" class="btn-prev" onclick="prevStep(3)">Atrás</button>
-                        <button type="submit" class="btn-submit" id="analyzeBtn">Analizar Riesgo</button>
+                        <button type="button" class="btn-prev" onclick="prevStep(3)">
+                            <i class="fa-solid fa-arrow-left"></i> Atrás
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextStep(5)">
+                            Siguiente <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Medicación y Síntomas -->
+                <div class="form-step" id="step5">
+                    <h2><i class="fa-solid fa-pills"></i> Medicación y Síntomas</h2>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-prescription-bottle-medical"></i> Medicación Actual</h3>
+                    <div class="grid-3">
+                        <div class="input-group toggle-group">
+                            <label>IECA/ARA-II</label>
+                            <select name="ACEInhibitors">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                            <span class="field-hint">Enalapril, Losartán...</span>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Diuréticos</label>
+                            <select name="Diuretics">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                            <span class="field-hint">Furosemida, HCTZ...</span>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Antihipertensivos</label>
+                            <select name="HTNmeds">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Estatinas</label>
+                            <select name="Statins">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                            <span class="field-hint">Atorvastatina, Simva...</span>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Antidiabéticos</label>
+                            <select name="AntidiabeticMedications">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                            <span class="field-hint">Metformina, Insulina...</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Uso de AINEs</label>
+                            <input type="number" step="0.1" name="NSAIDsUse" value="0" min="0" max="10">
+                            <span class="field-hint">Frecuencia 0-10 (Ibuprofeno...)</span>
+                        </div>
+                    </div>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-stethoscope"></i> Síntomas Actuales</h3>
+                    <div class="grid-3">
+                        <div class="input-group toggle-group">
+                            <label>Edema (Hinchazón)</label>
+                            <select name="Edema">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Fatiga / Cansancio</label>
+                            <select name="Fatigue">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Náuseas / Vómitos</label>
+                            <select name="NauseaVomiting">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Calambres Musculares</label>
+                            <select name="MuscleCramps">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Prurito (Picazón)</label>
+                            <input type="number" step="0.1" name="Itching" value="0" min="0" max="10">
+                            <span class="field-hint">Intensidad 0-10</span>
+                        </div>
+                    </div>
+
+                    <h3 class="subsection-title"><i class="fa-solid fa-industry"></i> Exposiciones y Adherencia</h3>
+                    <div class="grid-3">
+                        <div class="input-group toggle-group">
+                            <label>Exp. Metales Pesados</label>
+                            <select name="HeavyMetalsExposure">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group toggle-group">
+                            <label>Exp. Químicos Ocupacional</label>
+                            <select name="OccupationalExposureChemicals">
+                                <option value="0">No</option>
+                                <option value="1">Sí</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Chequeos Médicos/Año</label>
+                            <input type="number" step="0.1" name="MedicalCheckupsFrequency" value="1" min="0" max="12">
+                        </div>
+                        <div class="input-group">
+                            <label>Adherencia Medicación</label>
+                            <input type="number" step="0.1" name="MedicationAdherence" value="5" min="0" max="10">
+                            <span class="field-hint">Escala 0-10</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Alfabetización en Salud</label>
+                            <input type="number" step="0.1" name="HealthLiteracy" value="5" min="0" max="10">
+                            <span class="field-hint">Escala 0-10</span>
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <button type="button" class="btn-prev" onclick="prevStep(4)">
+                            <i class="fa-solid fa-arrow-left"></i> Atrás
+                        </button>
+                        <button type="submit" class="btn-submit" id="analyzeBtn">
+                            <i class="fa-solid fa-magnifying-glass-chart"></i> Analizar Riesgo de ERC
+                        </button>
                     </div>
                 </div>
             </form>
 
+            <!-- Results Panel -->
             <div id="result" class="result-card hidden">
                 <div class="result-header">
-                    <h2>Resultado del Análisis</h2>
+                    <h2><i class="fa-solid fa-chart-pie"></i> Resultado del Análisis</h2>
                     <button class="close-result" onclick="resetForm()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+
+                <!-- ERC Staging -->
+                <div id="ercStaging" class="erc-staging-panel">
+                    <div class="erc-stage-grid">
+                        <div class="erc-gfr-stage" id="ercGfrStage">
+                            <span class="stage-label">Estadio GFR</span>
+                            <span class="stage-value" id="gfrStageValue">--</span>
+                        </div>
+                        <div class="erc-acr-stage" id="ercAcrStage">
+                            <span class="stage-label">Categoría Albuminuria</span>
+                            <span class="stage-value" id="acrStageValue">--</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="result-body">
                     <div class="gauge-container">
                         <div class="gauge-bg"></div>
@@ -262,21 +597,55 @@
                         </div>
                     </div>
                 </div>
+
                 <div id="riskIndicator" class="risk-badge">
                     <span id="riskLabel">--</span>
                 </div>
 
+                <!-- KFRE Risk -->
+                <div id="kfreSection" class="kfre-container hidden">
+                    <h3><i class="fa-solid fa-calendar-days"></i> Riesgo de Falla Renal (KFRE)</h3>
+                    <div class="kfre-results">
+                        <div class="kfre-item">
+                            <span class="kfre-label">Riesgo a 2 años</span>
+                            <span class="kfre-value" id="kfre2year">--</span>
+                        </div>
+                        <div class="kfre-item">
+                            <span class="kfre-label">Riesgo a 5 años</span>
+                            <span class="kfre-value" id="kfre5year">--</span>
+                        </div>
+                    </div>
+                    <p class="kfre-note">Basado en la ecuación KFRE (Kidney Failure Risk Equation)</p>
+                </div>
+
+                <!-- eGFR Info -->
+                <div id="egfrInfoPanel" class="egfr-info-panel hidden"></div>
+
+                <!-- Cardio-Renal Panel (se llena dinámicamente) -->
+                <div id="cardioRenalPanel" class="cardio-renal-panel hidden"></div>
+
                 <!-- Explicación del Resultado (XAI) -->
                 <div id="explanationSection" class="explanation-container hidden">
                     <h3><i class="fa-solid fa-magnifying-glass-chart"></i> ¿Por qué este resultado?</h3>
-                    <p class="explanation-subtitle">Factores principales que influyeron en esta predicción:
-                    </p>
+                    <p class="explanation-subtitle">Factores principales que influyeron en esta predicción:</p>
                     <div id="explanationList" class="explanation-list"></div>
                 </div>
 
                 <!-- Gráfico de Radar -->
                 <div class="chart-container" style="position: relative; height:300px; width:100%; margin-top: 20px;">
                     <canvas id="riskRadarChart"></canvas>
+                </div>
+
+                <!-- Critical Alerts -->
+                <div id="criticalAlerts" class="critical-alerts-container hidden">
+                    <h3><i class="fa-solid fa-triangle-exclamation"></i> Alertas Críticas</h3>
+                    <div id="criticalAlertsList"></div>
+                </div>
+
+                <!-- Suggested Tests -->
+                <div id="suggestedTests" class="suggested-tests-container hidden">
+                    <h3><i class="fa-solid fa-clipboard-list"></i> Pruebas Adicionales Sugeridas</h3>
+                    <div id="suggestedTestsList"></div>
                 </div>
 
                 <!-- Recomendaciones Clínicas -->
@@ -297,13 +666,18 @@
 
                 <p class="disclaimer">
                     <i class="fa-solid fa-circle-info"></i>
-                    Este resultado es una estimación basada en IA. Consulte siempre a un especialista.
+                    Este resultado es una estimación basada en IA y guías clínicas KDIGO. 
+                    No sustituye el juicio clínico. Consulte siempre a un especialista.
                 </p>
             </div>
         </main>
     </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
     <!-- App Logic -->
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=10"></script>
 </body>
 
 </html>
