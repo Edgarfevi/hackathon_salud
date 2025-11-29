@@ -326,55 +326,39 @@
                             <span class="field-hint">mmHg. Normal: &lt;80</span>
                         </div>
                     </div>
-
-                    <h3 class="subsection-title"><i class="fa-solid fa-droplet"></i> Glucemia</h3>
+                    <h3 class="subsection-title"><i class="fa-solid fa-kidney"></i> Función Renal y Metabolismo</h3>
                     <div class="grid-3">
                         <div class="input-group">
-                            <label>Glucosa Ayunas <span class="required">*</span></label>
-                            <input type="number" step="0.1" name="FastingBloodSugar" placeholder="90" min="40"
-                                max="500">
-                            <span class="field-hint">mg/dL. Normal: 70-100</span>
-                        </div>
-                        <div class="input-group">
-                            <label>HbA1c</label>
-                            <input type="number" step="0.1" name="HbA1c" placeholder="5.5" min="3" max="15">
-                            <span class="field-hint">%. Normal: &lt;5.7</span>
-                        </div>
-                    </div>
-
-                    <h3 class="subsection-title critical-section"><i class="fa-solid fa-kidneys"></i> Función Renal
-                        (CRÍTICO)</h3>
-                    <div class="critical-alert">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                        <span>Estos valores son esenciales para la evaluación de ERC</span>
-                    </div>
-                    <div class="grid-3">
-                        <div class="input-group highlight-critical">
                             <label>Creatinina Sérica <span class="required">*</span></label>
-                            <input type="number" step="0.01" name="SerumCreatinine" placeholder="1.0" min="0.1" max="20"
-                                id="creatinineInput">
+                            <input type="number" step="0.01" id="creatinineInput" name="SerumCreatinine"
+                                placeholder="1.0" onchange="calculateGFR()">
                             <span class="field-hint">mg/dL. Normal: 0.7-1.3</span>
                         </div>
-                        <div class="input-group highlight-critical">
-                            <label>eGFR (Auto-calculado)</label>
-                            <input type="number" step="0.1" name="GFR" placeholder="Calculado" id="gfrInput" readonly>
+                        <div class="input-group">
+                            <label>eGFR (Calculado)</label>
+                            <input type="text" id="gfrInput" readonly placeholder="Calculando..."
+                                style="background-color: #f3f4f6; cursor: not-allowed;">
                             <span class="field-hint" id="gfrStage">ml/min/1.73m²</span>
                         </div>
                         <div class="input-group">
-                            <label>BUN (Nitrógeno Ureico)</label>
-                            <input type="number" step="0.1" name="BUN" placeholder="15" min="1" max="150">
+                            <label>Glucosa en Ayunas</label>
+                            <input type="number" name="FastingBloodSugar" placeholder="90">
+                            <span class="field-hint">mg/dL. Normal: &lt;100</span>
+                        </div>
+                        <div class="input-group">
+                            <label>HbA1c</label>
+                            <input type="number" step="0.1" name="HbA1c" placeholder="5.5">
+                            <span class="field-hint">%. Normal: &lt;5.7</span>
+                        </div>
+                        <div class="input-group">
+                            <label>Nitrógeno Ureico (BUN)</label>
+                            <input type="number" step="0.1" name="BUNLevels" placeholder="15">
                             <span class="field-hint">mg/dL. Normal: 7-20</span>
                         </div>
-                        <div class="input-group highlight-critical">
-                            <label>Proteína en Orina</label>
-                            <input type="number" step="0.1" name="ProteinInUrine" placeholder="0" min="0" max="100">
-                            <span class="field-hint">g/L. Normal: &lt;0.15</span>
-                        </div>
-                        <div class="input-group highlight-critical">
-                            <label>ACR (Albúmina/Creatinina)</label>
-                            <input type="number" step="0.1" name="ACR" placeholder="15" min="0" max="5000"
-                                id="acrInput">
-                            <span class="field-hint" id="acrStage">mg/g. Normal: &lt;30</span>
+                        <div class="input-group">
+                            <label>Albúmina/Creatinina (ACR)</label>
+                            <input type="number" step="0.1" name="ACR" placeholder="10">
+                            <span class="field-hint">mg/g. Normal: &lt;30</span>
                         </div>
                     </div>
 

@@ -551,8 +551,13 @@ input[readonly] {
 }
 
 @keyframes highlightPulse {
-    0% { background-color: #d4edda; }
-    100% { background-color: white; }
+    0% {
+        background-color: #d4edda;
+    }
+
+    100% {
+        background-color: white;
+    }
 }
 
 .error {
@@ -567,8 +572,15 @@ input[readonly] {
 }
 
 @keyframes criticalPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-    50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.2); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.2);
+    }
 }
 
 .warning-value {
@@ -1347,6 +1359,7 @@ button {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -1358,6 +1371,7 @@ button {
         transform: translateX(0);
         opacity: 1;
     }
+
     to {
         transform: translateX(100%);
         opacity: 0;
@@ -1369,6 +1383,7 @@ button {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1397,8 +1412,15 @@ button {
 }
 
 @keyframes pulse-soft {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.2); }
-    50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    }
 }
 
 .demo-content {
@@ -1529,9 +1551,17 @@ button {
     font-weight: 700;
 }
 
-.risk-metric-value.high { color: #dc2626; }
-.risk-metric-value.moderate { color: #f59e0b; }
-.risk-metric-value.low { color: #10b981; }
+.risk-metric-value.high {
+    color: #dc2626;
+}
+
+.risk-metric-value.moderate {
+    color: #f59e0b;
+}
+
+.risk-metric-value.low {
+    color: #10b981;
+}
 
 /* ========================================
    CLINICAL CONTEXT PANEL

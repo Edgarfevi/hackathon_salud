@@ -428,15 +428,32 @@ document.getElementById('riskForm').addEventListener('submit', async function (e
     }
 
     try {
-        const response = await fetch('/api/predict', {
+        const baseUrl = getApiBaseUrl();
+        const response = await fetch(`${baseUrl}/predict`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || 'Error en servidor');
+            let errorMessage = 'Error en servidor';
+
+            if (errorData.detail) {
+                if (typeof errorData.detail === 'string') {
+                    errorMessage = errorData.detail;
+                } else if (Array.isArray(errorData.detail)) {
+                    // Pydantic validation error
+                    errorMessage = errorData.detail.map(err =>
+                        `${err.loc[1] || 'Campo'}: ${err.msg}`
+                    ).join('\n');
+                } else {
+                    errorMessage = JSON.stringify(errorData.detail);
+                }
+            }
+            throw new Error(errorMessage);
         }
 
         const result = await response.json();
@@ -1047,6 +1064,16 @@ if (dropZone) {
     });
 }
 
+// Helper to determine API URL
+function getApiBaseUrl() {
+    // If running from file://, assume backend is on localhost:8000 (Direct Access)
+    if (window.location.protocol === 'file:') {
+        return 'http://localhost:8000';
+    }
+    // Otherwise assume we are behind Nginx proxy (Docker) -> Use /api prefix
+    return '/api';
+}
+
 async function handleFileUpload(file) {
     uploadContent.classList.add('hidden');
     uploadLoading.classList.remove('hidden');
@@ -1055,7 +1082,9 @@ async function handleFileUpload(file) {
     formData.append('file', file);
 
     try {
-        const response = await fetch('/api/analyze_pdf', {
+        const baseUrl = getApiBaseUrl();
+        // Remove /api from here because it's now part of baseUrl if needed
+        const response = await fetch(`${baseUrl}/analyze_pdf`, {
             method: 'POST',
             body: formData
         });

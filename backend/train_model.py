@@ -59,7 +59,7 @@ def main():
         model.train(data_path)
         logger.info("=" * 60)
         logger.info("✅ ENTRENAMIENTO COMPLETADO EXITOSAMENTE")
-        logger.info(f"   Modelo guardado en: {model.model_path}")
+        logger.info(f"   Modelo guardado en: {model.model_path_json}")
         logger.info(f"   Threshold óptimo: {model.threshold:.2f}")
         logger.info("=" * 60)
         

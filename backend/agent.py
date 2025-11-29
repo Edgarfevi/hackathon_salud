@@ -97,51 +97,61 @@ class MedicalRecordExtractor:
         if not self.model:
             raise Exception("GEMINI_API_KEY no configurada. No se puede extraer datos sin IA.")
 
-        try:
-            logger.info(f"Procesando PDF: {pdf_path}")
-            
-            # Subir archivo a Gemini
-            uploaded_file = genai.upload_file(pdf_path)
-            logger.info(f"Archivo subido: {uploaded_file.name}")
+        import time
+        max_retries = 10
+        retry_delay = 2
 
-            # ESTRATEGIA 1: Intento con prompt detallado
+        for attempt in range(max_retries):
             try:
-                return self._try_extraction_with_prompt(
-                    uploaded_file, 
-                    self._build_extraction_prompt(),
-                    "detallado"
-                )
-            except Exception as e:
-                error_msg = str(e)
+                logger.info(f"Procesando PDF: {pdf_path} (Intento {attempt + 1}/{max_retries})")
                 
-                # Si fue bloqueado por seguridad, intentar con prompt neutral
-                if "bloqueado" in error_msg.lower() or "safety" in error_msg.lower():
-                    logger.warning("⚠ Primer intento bloqueado. Reintentando con prompt neutral...")
-                    
-                    # ESTRATEGIA 2: Prompt más neutral para evitar filtros
-                    try:
-                        return self._try_extraction_with_prompt(
-                            uploaded_file,
-                            self._build_neutral_prompt(),
-                            "neutral"
-                        )
-                    except Exception as e2:
-                        logger.error(f"Segundo intento también falló: {e2}")
-                        # Si ambos fallan, lanzar el error original con más contexto
-                        raise Exception(
-                            f"No se pudo extraer datos después de 2 intentos. "
-                            f"El PDF puede contener contenido que Gemini no puede procesar. "
-                            f"Error: {error_msg}"
-                        )
-                else:
-                    # No es un error de seguridad, relanzar
-                    raise
+                # Subir archivo a Gemini (si no existe ya, aunque aquí lo subimos cada vez para asegurar)
+                # En producción idealmente se reusaría el file handle si es posible
+                uploaded_file = genai.upload_file(pdf_path)
+                logger.info(f"Archivo subido: {uploaded_file.name}")
 
-        except Exception as e:
-            logger.error(f"Error extrayendo datos del PDF: {e}")
-            import traceback
-            traceback.print_exc()
-            raise Exception(f"Error al procesar el PDF: {str(e)}")
+                # ESTRATEGIA 1: Intento con prompt detallado
+                try:
+                    return self._try_extraction_with_prompt(
+                        uploaded_file, 
+                        self._build_extraction_prompt(),
+                        "detallado"
+                    )
+                except Exception as e:
+                    error_msg = str(e)
+                    
+                    # Si fue bloqueado por seguridad, intentar con prompt neutral
+                    if "bloqueado" in error_msg.lower() or "safety" in error_msg.lower():
+                        logger.warning("⚠ Primer intento bloqueado. Reintentando con prompt neutral...")
+                        
+                        # ESTRATEGIA 2: Prompt más neutral para evitar filtros
+                        try:
+                            return self._try_extraction_with_prompt(
+                                uploaded_file,
+                                self._build_neutral_prompt(),
+                                "neutral"
+                            )
+                        except Exception as e2:
+                            logger.error(f"Segundo intento también falló: {e2}")
+                            # Si no es el último intento, lanzar para que el loop externo lo capture y reintente
+                            if attempt < max_retries - 1:
+                                raise Exception(f"Bloqueo de seguridad persistente: {error_msg}")
+                            else:
+                                raise
+                    else:
+                        # No es un error de seguridad, relanzar
+                        raise
+
+            except Exception as e:
+                logger.error(f"Error en intento {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (attempt + 1)
+                    logger.info(f"Reintentando en {wait_time} segundos...")
+                    time.sleep(wait_time)
+                else:
+                    import traceback
+                    traceback.print_exc()
+                    raise Exception(f"No se pudo extraer datos después de {max_retries} intentos. Error: {str(e)}")
     
     def _try_extraction_with_prompt(self, uploaded_file, prompt: str, strategy: str) -> Dict[str, Any]:
         """
@@ -376,6 +386,13 @@ REGLAS CRÍTICAS DE INFERENCIA:
    - "Enfermedad de Fabry", errores metabólicos → Sospechar daño renal
    - Múltiples comorbilidades → Marcar TODAS
 
+7. **Inferencia de Condiciones Implícitas (CRÍTICO):**
+   - Si toma Enalapril, Losartán, etc. → HistoryHTN=1 (aunque no diga "Hipertensión")
+   - Si toma Metformina, Insulina → HistoryDiabetes=1
+   - Si toma Atorvastatina → HistoryDLD=1
+   - Si tiene "Retinopatía diabética" → HistoryDiabetes=1
+   - Si tiene "Nefropatía hipertensiva" → HistoryHTN=1
+
 La historia clínica está en ESPAÑOL. Traduce términos médicos correctamente.
 
 EXTRAE TODO. SÉ UN DETECTIVE CLÍNICO. NO INVENTES DATOS QUE NO EXISTAN.
@@ -486,16 +503,41 @@ Recuerda: Este es material educativo con datos inventados.
         json_str = re.sub(r',\s*]', ']', json_str)  # Trailing commas en arrays
         
         try:
-            return json.loads(json_str)
+            data = json.loads(json_str)
+            # Normalizar decimales (convertir comas a puntos)
+            return self._normalize_decimals(data)
         except json.JSONDecodeError as e:
             logger.error(f"Error parseando JSON: {e}")
             logger.error(f"JSON problemático: {json_str[:200]}...")
             raise Exception(f"Error parseando JSON de Gemini: {e}")
-    
+
+    def _normalize_decimals(self, data: Any) -> Any:
+        """
+        Recursivamente normaliza decimales con coma a punto.
+        Ej: "0,31" -> 0.31
+        """
+        if isinstance(data, dict):
+            return {k: self._normalize_decimals(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._normalize_decimals(v) for v in data]
+        elif isinstance(data, str):
+            # Intentar convertir strings numéricos con coma
+            if re.match(r'^-?\d+,\d+$', data.strip()):
+                try:
+                    return float(data.replace(',', '.'))
+                except ValueError:
+                    return data
+            # Intentar convertir strings numéricos normales que quedaron como str
+            elif re.match(r'^-?\d+(\.\d+)?$', data.strip()):
+                try:
+                    return float(data) if '.' in data else int(data)
+                except ValueError:
+                    return data
+        return data
+
     def _fill_clinical_gaps(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Rellena valores faltantes usando lógica clínica.
-        Crítico para PDFs con información incompleta.
+        Rellena valores faltantes con lógica clínica y valores por defecto.
         """
         # ============================================
         # IMC - Nunca debe ser 0

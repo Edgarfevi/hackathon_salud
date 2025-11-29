@@ -43,7 +43,8 @@ class KidneyDiseaseModel:
         'DietQuality', 'SleepQuality',
         'WaterQuality', 'QualityOfLifeScore',
         'GFR',  # El GFR real sería target leakage
-        'TimeToEventMonths'  # Target leakage
+        'TimeToEventMonths',  # Target leakage
+        'TIME_YEAR'  # Data leakage (fecha/tiempo no debe influir)
     ]
     
     # Mapeo de nombres de columnas del frontend al modelo
@@ -243,7 +244,7 @@ class KidneyDiseaseModel:
         logger.info(f"\nReporte de clasificación:\n{classification_report(y_test, y_pred)}")
         
         # Guardar métricas
-        metrics_path = os.path.join(os.path.dirname(self.model_path), "latest_metrics.txt")
+        metrics_path = os.path.join(os.path.dirname(self.model_path_json), "latest_metrics.txt")
         with open(metrics_path, "w") as f:
             f.write(f"Accuracy: {accuracy:.4f}\n")
             f.write(f"ROC AUC: {roc_auc:.4f}\n")
