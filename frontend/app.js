@@ -381,7 +381,10 @@ function renderRadarChart(result) {
     const topContributors = contributors.slice(0, 5);
     const labels = topContributors.map(c => formatFeatureName(c.feature));
     // Clamp values to 100 max for visual consistency
-    const data = topContributors.map(c => Math.min(Math.abs(c.shap_value) * 100, 100));
+    const data = topContributors.map(c => {
+        let val = Math.abs(c.impact) * 100;
+        return Math.min(val, 100);
+    });
 
     if (radarChartInstance) { // Use radarChartInstance here
         radarChartInstance.destroy();

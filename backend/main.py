@@ -1,32 +1,41 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
-import pandas as pd
 from fastapi.middleware.cors import CORSMiddleware
-import os
-import sys
 import shutil
+import os
+import json
+import traceback
 
-# Añadir el directorio padre al path para importar el modelo
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Importaciones limpias (Docker WORKDIR es /app, así que esto funciona directo)
+from model import KidneyDiseaseModel
+from agent import MedicalRecordExtractor
 
-# Intentar importar desde backend.model o model según desde dónde se ejecute
-try:
-    from backend.model import KidneyDiseaseModel
-    from backend.agent import MedicalRecordExtractor
-except ImportError:
-    from model import KidneyDiseaseModel
-    from agent import MedicalRecordExtractor
+app = FastAPI(title="NephroMind API")
 
-app = FastAPI(title="CKD Risk Prediction API")
-
-# Enable CORS
+# Configurar CORS (Permitir todo para el hackathon es OK)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For hackathon, allow all. In prod, specify domain.
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Inicializar modelo al arrancar
+model = KidneyDiseaseModel()
+# Ruta absoluta dentro del contenedor Docker
+DATA_PATH = "/app/archive/kidney_data.csv" 
+
+@app.on_event("startup")
+async def startup_event():
+    if os.path.exists(DATA_PATH):
+        print(f"Entrenando modelo con datos en: {DATA_PATH}")
+        model.train(DATA_PATH)
+    elif os.path.exists("kidney_model.pkl"):
+        print("Cargando modelo pre-entrenado...")
+        model.load_model()
+    else:
+        print("ADVERTENCIA: No se encontró dataset ni modelo guardado.")
 
 class PatientData(BaseModel):
     Age: int
@@ -93,27 +102,25 @@ class PatientData(BaseModel):
 async def analyze_pdf(file: UploadFile = File(...)):
     temp_file = f"temp_{file.filename}"
     try:
-        # Save temp file
+        # Guardar archivo temporal
         with open(temp_file, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Extract data
+        # 1. Extracción con IA (Gemini)
         extractor = MedicalRecordExtractor()
         patient_data_dict = extractor.extract_patient_data(temp_file)
         
-        # Predict
+        # 2. Predicción de Riesgo
         result = model.predict(patient_data_dict)
         
         if "error" in result:
              raise Exception(result["error"])
         
-        risk_level = "High" if result["prediction"] == 1 else "Low"
-        
         return {
             "extracted_data": patient_data_dict,
-            "risk_class": result["prediction"],
-            "risk_level": risk_level,
-            "probability": result["probability"],
+            "risk_class": int(result["prediction"]),
+            "risk_level": "Alto" if result["prediction"] == 1 else "Bajo",
+            "probability": float(result["probability"]),
             "contributors": result.get("contributors", [])
         }
         
@@ -121,7 +128,7 @@ async def analyze_pdf(file: UploadFile = File(...)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Ensure temp file is removed
+        # Limpieza segura
         if os.path.exists(temp_file):
             os.remove(temp_file)
 
@@ -138,15 +145,14 @@ def predict_risk(data: PatientData):
         if "error" in result:
              raise Exception(result["error"])
         
-        risk_level = "High" if result["prediction"] == 1 else "Low"
+        risk_level = "Alto" if result["prediction"] == 1 else "Bajo"
         
         return {
-            "risk_class": result["prediction"],
+            "risk_class": int(result["prediction"]),
             "risk_level": risk_level,
-            "probability": result["probability"],
+            "probability": float(result["probability"]),
             "contributors": result.get("contributors", [])
         }
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
