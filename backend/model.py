@@ -27,10 +27,12 @@ class KidneyDiseaseModel:
     def load_data(self, filepath):
         df = pd.read_csv(filepath)
         # Drop irrelevant columns as per medical feedback
+        # Also dropping GFR as it's a diagnostic criterion (data leakage)
         columns_to_drop = [
             'PatientID', 'DoctorInCharge', 
             'DietQuality', 'SleepQuality', 
-            'WaterQuality', 'QualityOfLifeScore'
+            'WaterQuality', 'QualityOfLifeScore',
+            'GFR'  # Diagnostic criterion - would be data leakage
         ]
         
         # Drop only those that exist in the dataframe
@@ -51,15 +53,17 @@ class KidneyDiseaseModel:
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
         
-        # Apply SMOTE to Train data only
-        print("Applying SMOTE...")
-        smote = SMOTE(random_state=42, k_neighbors=5)
-        X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
+        # Strategy: Class Weights (No SMOTE)
+        # Calculate scale_pos_weight for XGBoost: sum(negative) / sum(positive)
+        n_pos = sum(y_train)
+        n_neg = len(y_train) - n_pos
+        scale_pos_weight = n_neg / n_pos
+        print(f"Using Class Weights strategy. Calculated scale_pos_weight: {scale_pos_weight:.2f}")
         
         # Scaling
         print("Scaling data...")
         self.scaler = StandardScaler()
-        X_train_scaled = self.scaler.fit_transform(X_train_res)
+        X_train_scaled = self.scaler.fit_transform(X_train) # Use original X_train
         X_test_scaled = self.scaler.transform(X_test)
         
         # Feature Selection (RFE)
@@ -70,11 +74,12 @@ class KidneyDiseaseModel:
             max_depth=3, 
             random_state=42, 
             n_jobs=-1,
-            eval_metric='logloss'
+            eval_metric='logloss',
+            scale_pos_weight=scale_pos_weight # Use weights here too
         )
         # Select top 20 features
         rfe = RFE(estimator=selector_model, n_features_to_select=20, step=1)
-        rfe.fit(X_train_scaled, y_train_res)
+        rfe.fit(X_train_scaled, y_train) # Use original y_train
         
         # Update columns to keep only selected ones
         selected_mask = rfe.support_
@@ -85,26 +90,18 @@ class KidneyDiseaseModel:
         X_train_selected = rfe.transform(X_train_scaled)
         X_test_selected = rfe.transform(X_test_scaled)
         
-        # Compute sample weights for balancing (on resampled data)
-        sample_weights = compute_sample_weight(
-            class_weight='balanced',
-            y=y_train_res
-        )
-
-        # Initialize and train final XGBoost model on selected features
-        print("Training XGBoost on selected features...")
         # Initialize and train final XGBoost model on selected features
         print("Training XGBoost on selected features...")
         self.model = XGBClassifier(
             n_estimators=200,
             learning_rate=0.1,
+            scale_pos_weight=scale_pos_weight, # Apply class weights
             max_depth=5,
             random_state=42,
             n_jobs=-1,
-            use_label_encoder=False,
             eval_metric='logloss'
         )
-        self.model.fit(X_train_selected, y_train_res, sample_weight=sample_weights)
+        self.model.fit(X_train_selected, y_train)
         print("Training complete.")
         
         # Threshold Tuning
@@ -121,7 +118,7 @@ class KidneyDiseaseModel:
             recall_1 = tp / (tp + fn) if (tp + fn) > 0 else 0
             
             # Custom score: prioritize Recall 0 but ensure Recall 1 is safe
-            if recall_1 > 0.90:
+            if recall_1 > 0.96:
                 score = recall_0
                 if score > best_score:
                     best_score = score
@@ -292,11 +289,13 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # Check if we are in backend dir or root
     # If in backend, data is in ../archive
-    # If in root, data is in archive
-    
     possible_paths = [
-        os.path.join(current_dir, "archive/Chronic_Kidney_Dsease_data.csv"),
-        "archive/Chronic_Kidney_Dsease_data.csv"
+        os.path.join(current_dir, "archive/merged_kidney_data (1).csv"),
+        os.path.join(current_dir, "../backend/archive/merged_kidney_data (1).csv"),
+        "backend/archive/merged_kidney_data (1).csv",
+        os.path.join(current_dir, "archive/normalized_chronic_kidney_disease_data_fin.csv"),
+        "archive/normalized_chronic_kidney_disease_data_fin.csv",
+        os.path.join(current_dir, "archive/Chronic_Kidney_Dsease_data.csv"), # Fallback
     ]
     
     data_path = None

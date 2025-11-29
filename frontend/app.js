@@ -113,6 +113,40 @@ document.getElementById('riskForm').addEventListener('submit', async function (e
     }
 });
 
+
+// Dynamic GFR Calculation (CKD-EPI)
+function calculateGFR() {
+    const age = parseFloat(document.querySelector('input[name="Age"]').value);
+    const gender = parseInt(document.querySelector('select[name="Gender"]').value); // 0=Male, 1=Female
+    const creatinine = parseFloat(document.querySelector('input[name="SerumCreatinine"]').value);
+
+    if (!age || !creatinine) return;
+
+    // CKD-EPI 2021 Formula
+    const kappa = gender === 1 ? 0.7 : 0.9;
+    const alpha = gender === 1 ? -0.241 : -0.302;
+
+    const minRatio = Math.min(creatinine / kappa, 1.0);
+    const maxRatio = Math.max(creatinine / kappa, 1.0);
+
+    let egfr = 142 * Math.pow(minRatio, alpha) * Math.pow(maxRatio, -1.200) * Math.pow(0.9938, age);
+
+    if (gender === 1) {
+        egfr *= 1.012;
+    }
+
+    const gfrInput = document.querySelector('input[name="GFR"]');
+    if (gfrInput) {
+        gfrInput.value = egfr.toFixed(1);
+    }
+}
+
+// Add listeners for GFR calculation
+document.querySelector('input[name="Age"]')?.addEventListener('change', calculateGFR);
+document.querySelector('select[name="Gender"]')?.addEventListener('change', calculateGFR);
+document.querySelector('input[name="SerumCreatinine"]')?.addEventListener('change', calculateGFR);
+document.querySelector('input[name="SerumCreatinine"]')?.addEventListener('keyup', calculateGFR); // Real-time update
+
 function displayResult(result) {
     const resultCard = document.getElementById('result');
     const riskLabel = document.getElementById('riskLabel');
@@ -123,6 +157,39 @@ function displayResult(result) {
 
     const probability = (result.probability * 100).toFixed(1);
     probabilitySpan.innerText = `${probability}%`;
+
+    // Update Gauge Visual
+    const gaugeFill = document.getElementById('gaugeFill');
+    if (gaugeFill) {
+        // 0% = 0deg, 100% = 180deg
+        const rotation = (result.probability * 180);
+        gaugeFill.style.transform = `rotate(${rotation}deg)`;
+
+        // Color based on risk
+        if (result.probability > 0.5) {
+            gaugeFill.style.backgroundColor = '#ef4444'; // Red
+        } else {
+            gaugeFill.style.backgroundColor = '#10b981'; // Green
+        }
+    }
+
+    // Display eGFR if available
+    if (result.egfr) {
+        const egfrNote = document.createElement('div');
+        egfrNote.className = 'egfr-info';
+        egfrNote.style.cssText = 'margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;';
+
+        let egfrHTML = `<strong>eGFR Calculado (CKD-EPI):</strong> ${result.egfr} ml/min/1.73m²<br>`;
+
+        if (result.source === 'clinical_rule') {
+            egfrHTML += `<span style="color: #dc2626; font-weight: bold;">⚠️ ${result.clinical_note}</span>`;
+        } else if (result.clinical_note) {
+            egfrHTML += `<span style="color: #059669;">${result.clinical_note}</span>`;
+        }
+
+        egfrNote.innerHTML = egfrHTML;
+        riskIndicator.after(egfrNote);
+    }
 
     if (result.risk_class === 1) {
         riskLabel.innerText = 'ALTO RIESGO';
@@ -143,11 +210,6 @@ function displayResult(result) {
 
     // Guardar resultado para exportación
     window.lastResult = result;
-
-    // Intentar guardar en FHIR (si estamos conectados)
-    if (window.sendRiskAssessment) {
-        window.sendRiskAssessment(result);
-    }
 }
 
 function displayClinicalRecommendations(result) {
@@ -231,7 +293,7 @@ function displayExplanation(result) {
             <div class="explanation-item ${impactClass}">
                 <div class="explanation-header">
                     <span class="feature-name">${featureName}</span>
-                    <span class="feature-value">${item.value.toFixed(2)}</span>
+                    <span class="feature-value">${(item.value !== undefined && item.value !== null) ? Number(item.value).toFixed(2) : '--'}</span>
                 </div>
                 <div class="explanation-impact">
                     <i class="fa-solid ${impactIcon}"></i> ${impactText}
@@ -244,21 +306,59 @@ function displayExplanation(result) {
 function formatFeatureName(feature) {
     const map = {
         'Age': 'Edad',
-        'BMI': 'IMC',
+        'Gender': 'Género',
+        'Ethnicity': 'Etnia',
+        'SocioeconomicStatus': 'Nivel Socioeconómico',
+        'EducationLevel': 'Nivel Educativo',
+        'BMI': 'Índice de Masa Corporal (IMC)',
+        'Smoking': 'Tabaquismo',
+        'AlcoholConsumption': 'Consumo de Alcohol',
+        'PhysicalActivity': 'Actividad Física',
+        'FamilyHistoryKidneyDisease': 'Hist. Fam. Enfermedad Renal',
+        'FamilyHistoryHypertension': 'Hist. Fam. Hipertensión',
+        'FamilyHistoryDiabetes': 'Hist. Fam. Diabetes',
+        'PreviousAcuteKidneyInjury': 'Lesión Renal Aguda Previa',
+        'UrinaryTractInfections': 'Infecciones Urinarias',
         'SystolicBP': 'Presión Sistólica',
         'DiastolicBP': 'Presión Diastólica',
         'FastingBloodSugar': 'Glucosa en Ayunas',
-        'HbA1c': 'HbA1c',
+        'HbA1c': 'Hemoglobina Glicosilada (HbA1c)',
         'SerumCreatinine': 'Creatinina Sérica',
         'BUN': 'Nitrógeno Ureico (BUN)',
         'GFR': 'Filtrado Glomerular (GFR)',
         'ProteinInUrine': 'Proteína en Orina',
-        'ACR': 'Albúmina/Creatinina',
-        'HemoglobinLevels': 'Hemoglobina',
+        'ACR': 'Relación Albúmina/Creatinina',
+        'SerumElectrolytesSodium': 'Sodio Sérico',
+        'SerumElectrolytesPotassium': 'Potasio Sérico',
+        'SerumElectrolytesCalcium': 'Calcio Sérico',
+        'SerumElectrolytesPhosphorus': 'Fósforo Sérico',
+        'HemoglobinLevels': 'Niveles de Hemoglobina',
         'CholesterolTotal': 'Colesterol Total',
         'CholesterolLDL': 'Colesterol LDL',
         'CholesterolHDL': 'Colesterol HDL',
-        'CholesterolTriglycerides': 'Triglicéridos'
+        'CholesterolTriglycerides': 'Triglicéridos',
+        'ACEInhibitors': 'Uso de Inhibidores ACE',
+        'Diuretics': 'Uso de Diuréticos',
+        'NSAIDsUse': 'Uso de AINEs',
+        'Statins': 'Uso de Estatinas',
+        'AntidiabeticMedications': 'Medicamentos Antidiabéticos',
+        'Edema': 'Edema',
+        'Fatigue': 'Fatiga',
+        'NauseaVomiting': 'Náuseas/Vómitos',
+        'MuscleCramps': 'Calambres Musculares',
+        'Itching': 'Picazón (Prurito)',
+        'HeavyMetalsExposure': 'Exposición a Metales Pesados',
+        'OccupationalExposureChemicals': 'Exposición a Químicos',
+        'MedicalCheckupsFrequency': 'Frecuencia Chequeos Médicos',
+        'MedicationAdherence': 'Adherencia a Medicación',
+        'HealthLiteracy': 'Alfabetización en Salud',
+        'HistoryDiabetes': 'Antecedentes Diabetes',
+        'HistoryCHD': 'Antecedentes Cardíacos (CHD)',
+        'HistoryVascular': 'Antecedentes Vasculares',
+        'HistoryHTN': 'Antecedentes Hipertensión',
+        'HistoryDLD': 'Antecedentes Dislipidemia',
+        'HistoryObesity': 'Antecedentes Obesidad',
+        'HTNmeds': 'Medicación Hipertensión'
     };
     return map[feature] || feature;
 }
@@ -447,5 +547,100 @@ function exportResults(format) {
         if (window.showNotification) {
             window.showNotification('Preparando PDF para impresión', 'success');
         }
+    }
+}
+
+
+// Drag & Drop Logic
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const uploadLoading = document.getElementById('uploadLoading');
+const uploadContent = document.querySelector('.upload-content');
+
+if (dropZone) {
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0 && files[0].type === 'application/pdf') {
+            handleFileUpload(files[0]);
+        } else {
+            alert('Por favor sube un archivo PDF válido.');
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileUpload(e.target.files[0]);
+        }
+    });
+}
+
+async function handleFileUpload(file) {
+    uploadContent.classList.add('hidden');
+    uploadLoading.classList.remove('hidden');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch('http://localhost:8000/analyze_pdf', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) throw new Error('Error en el análisis del PDF');
+
+        const result = await response.json();
+
+        // Populate form with extracted data
+        populateForm(result.extracted_data);
+
+        if (window.showNotification) {
+            window.showNotification('Datos extraídos. Por favor revise el formulario y haga clic en "Analizar Riesgo"', 'info');
+        } else {
+            alert('Datos extraídos. Por favor revise el formulario y haga clic en "Analizar Riesgo"');
+        }
+
+        // Scroll to top to start review
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al procesar el PDF. Asegúrate de que el backend esté corriendo.');
+    } finally {
+        uploadLoading.classList.add('hidden');
+        uploadContent.classList.remove('hidden');
+        // Reset file input
+        fileInput.value = '';
+    }
+}
+
+function populateForm(data) {
+    for (const [key, value] of Object.entries(data)) {
+        const input = document.querySelector(`[name="${key}"]`);
+        if (input) {
+            input.value = value;
+            // Trigger change event for any listeners
+            input.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // Update summary if available
+    if (document.getElementById('summaryPatientName')) {
+        document.getElementById('summaryPatientName').textContent = "Paciente (PDF)";
+        if (data.Age) document.getElementById('summaryAge').textContent = `${data.Age} años`;
+        if (data.Gender !== undefined) document.getElementById('summaryGender').textContent = data.Gender === 1 ? "Femenino" : "Masculino";
     }
 }

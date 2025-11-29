@@ -7,3 +7,8 @@ imblearn
 pydantic
 shap
 xgboost
+joblib
+python-multipart
+google-generativeai
+pymupdf
+importlib-metadata

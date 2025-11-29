@@ -1,60 +1,54 @@
-# NephroMind - Detección de Riesgo de Enfermedad Renal Crónica (CKD)
+# NephroMind - Hackathon Boehringer Ingelheim 2025
 
-## 🏥 Descripción del Proyecto
-NephroMind es una herramienta de **Inteligencia Artificial para el cribado preventivo** de la Enfermedad Renal Crónica. Utiliza un modelo de Machine Learning (XGBoost) optimizado para identificar pacientes en riesgo con alta sensibilidad.
+## Descripción
+NephroMind es una herramienta digital diseñada para ayudar a los médicos de atención primaria a identificar pacientes con riesgo de desarrollar Enfermedad Renal Crónica (CKD) en etapas tempranas. Utiliza Inteligencia Artificial para analizar datos clínicos y demográficos, y se integra con estándares de interoperabilidad (HL7 FHIR).
 
-El sistema permite a los profesionales de la salud introducir datos clínicos y obtener una evaluación de riesgo inmediata, junto con una explicación detallada (SHAP) de los factores que influyen en la predicción.
+## Características
+- **Predicción de Riesgo con IA**: Modelo XGBoost entrenado para detectar riesgo de CKD.
+- **Reglas Clínicas de Seguridad**: Incorpora cálculo de eGFR (CKD-EPI) y alertas automáticas si eGFR < 60.
+- **Interoperabilidad**: Capacidad de conectarse con historias clínicas electrónicas vía SMART on FHIR.
+- **Explicabilidad (XAI)**: Muestra qué factores influyeron más en la predicción (SHAP values).
+- **Interfaz Intuitiva**: Dashboard diseñado para uso rápido en consulta.
 
-## 🚀 Características Clave
-*   **Alta Sensibilidad (97%)**: Prioriza la detección de enfermos para minimizar falsos negativos.
-*   **Explicabilidad (XAI)**: Muestra qué variables (ej. Creatinina, Edad, Hipertensión) contribuyeron más al diagnóstico.
-*   **Integración FHIR**: Envía los resultados como recursos `RiskAssessment` a un servidor FHIR compatible.
-*   **Visualización**: Gráfico de radar para comparar el perfil del paciente con el promedio.
+## Requisitos
+- Docker y Docker Compose
 
-## 📊 Rendimiento del Modelo (Final)
-El modelo ha sido entrenado y validado con el dataset `Chronic_Kidney_Dsease_data.csv`.
+## Instrucciones de Ejecución
 
-| Métrica | Valor | Interpretación |
-| :--- | :--- | :--- |
-| **Exactitud (Accuracy)** | **92.17%** | Acierto global. |
-| **Sensibilidad (Enfermos)** | **97%** | Detecta a 97 de cada 100 enfermos. |
-| **Especificidad (Sanos)** | **33%** | Tasa de falsas alarmas en sanos (aceptable para cribado). |
-| **ROC AUC** | **0.75** | Capacidad de discriminación. |
-
-> **Nota**: Se ha priorizado la sensibilidad sobre la especificidad. Esto significa que el modelo es "cauteloso" y prefiere alertar a un paciente sano antes que dejar pasar a uno enfermo.
-
-## 🛠️ Instalación y Uso
-
-### Requisitos Previos
-*   Docker y Docker Compose
-*   O bien: Python 3.9+ y Node.js (para ejecución local sin Docker)
-
-### Opción 1: Ejecución con Docker (Recomendado)
-1.  Clona el repositorio.
-2.  Ejecuta el siguiente comando en la raíz del proyecto:
+1.  **Clonar/Descargar el repositorio**
+2.  **Ejecutar con Docker Compose**:
     ```bash
     docker-compose up --build
     ```
-3.  Accede a la aplicación en: `http://localhost:8080`
+3.  **Acceder a la Aplicación**:
+    - Frontend: [http://localhost:8080](http://localhost:8080)
+    - Backend API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Opción 2: Ejecución Manual
+## Uso del Modo Demo
+Para propósitos de demostración en el Hackathon:
+1.  Abra la aplicación en el navegador.
+2.  Haga clic en el botón naranja **"Cargar Datos Demo"** en la parte superior.
+3.  Esto simulará la extracción de datos desde una historia clínica (FHIR), llenando automáticamente los campos del paciente "María García López".
+4.  Revise los datos precargados en los diferentes pasos.
+5.  En el último paso, haga clic en **"Analizar Riesgo"**.
+6.  Observe el resultado, el nivel de riesgo, y la explicación de los factores contribuyentes.
 
-**Backend (API):**
-```bash
-cd backend
-pip install -r requirements.txt
-python train_model.py  # (Opcional) Para re-entrenar el modelo
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
+## Estructura del Proyecto
+- `/backend`: API en Python/FastAPI y modelo de ML.
+- `/frontend`: Interfaz web (HTML/CSS/JS).
 
-**Frontend (Web):**
-Simplemente abre el archivo `frontend/index.html` en tu navegador o sírvelo con una extensión como "Live Server".
+## 🌟 Caso de Uso: "Laura" (Reto del Hackathon)
 
-## 📂 Estructura del Proyecto
-*   `backend/`: Código Python (FastAPI), Modelo (XGBoost) y scripts de entrenamiento.
-*   `frontend/`: Interfaz web (HTML/JS/CSS) y lógica FHIR.
-*   `archive/`: Datasets utilizados.
-*   `docker-compose.yml`: Orquestación de contenedores.
+**Perfil**: Mujer, 61 años, Hipertensión controlada, Cansancio.
+**Datos Clave**: Creatinina 1.1 mg/dL (Aparentemente normal/límite).
 
-## 🤝 Contribuciones
-Desarrollado para el Hackathon de Salud 2025.
+**Sin NephroMind**:
+El médico ve la creatinina de 1.1 en el rango de referencia del laboratorio y asume que es normal para su edad. El diagnóstico se retrasa.
+
+**Con NephroMind**:
+1.  El sistema ingesta los datos (FHIR/Manual).
+2.  Calcula automáticamente **eGFR = 57.17 ml/min** (CKD-EPI).
+3.  **ALERTA**: Detecta eGFR < 60 y marca **ALTO RIESGO**.
+4.  El médico recibe la alerta de que Laura está en **Estadio 3a de ERC** silenciosa.
+
+> "NephroMind hace visible lo invisible, detectando pacientes como Laura antes de que sea tarde."

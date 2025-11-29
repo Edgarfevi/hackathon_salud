@@ -79,6 +79,7 @@ function mapFHIRtoNephroAI(patient, observations, conditions, medications) {
         // Signos Vitales (buscar por código LOINC)
         SystolicBP: findLatestObservation(observations, '8480-6'),
         DiastolicBP: findLatestObservation(observations, '8462-4'),
+        BMI: findLatestObservation(observations, '39156-5'),
 
         // Laboratorio
         FastingBloodSugar: findLatestObservation(observations, '1558-6'),
@@ -326,6 +327,13 @@ function loadDemoData() {
                     valueQuantity: { value: 28 },
                     effectiveDateTime: new Date().toISOString()
                 }
+            },
+            {
+                resource: {
+                    code: { coding: [{ code: '39156-5' }] },
+                    valueQuantity: { value: 28.5 },
+                    effectiveDateTime: new Date().toISOString()
+                }
             }
         ]
     };
@@ -408,72 +416,78 @@ if (window.location.search.includes('code=') || window.location.search.includes(
     if (demoBanner) {
         demoBanner.classList.remove('hidden');
     }
-}
+    // 10. Escribir resultado en FHIR (Write-back)
+    async function sendRiskAssessment(predictionResult) {
+        try {
+            let client;
+            try {
+                client = await FHIR.oauth2.ready();
+            } catch (e) {
+                console.log('Modo Standalone: No se detectó contexto FHIR activo. Omitiendo guardado en historia clínica.');
+                return;
+            }
 
-// 10. Escribir resultado en FHIR (Write-back)
-async function sendRiskAssessment(predictionResult) {
-    try {
-        const client = await FHIR.oauth2.ready();
-        const patientId = client.patient.id;
+            const patientId = client.patient.id;
 
-        if (!patientId) {
-            console.log('No hay contexto de paciente FHIR activo para guardar el resultado.');
-            return;
-        }
+            if (!patientId) {
+                console.log('No hay contexto de paciente FHIR activo para guardar el resultado.');
+                return;
+            }
 
-        // Construir recurso RiskAssessment
-        const riskAssessment = {
-            resourceType: "RiskAssessment",
-            status: "final",
-            subject: {
-                reference: `Patient/${patientId}`
-            },
-            occurrenceDateTime: new Date().toISOString(),
-            performer: {
-                display: "NephroMind AI"
-            },
-            basis: [
-                // Aquí podríamos referenciar las observaciones usadas si tuviéramos sus IDs
-            ],
-            prediction: [
-                {
-                    outcome: {
-                        text: "Chronic Kidney Disease"
-                    },
-                    probabilityDecimal: predictionResult.probability,
-                    qualitativeRisk: {
-                        coding: [
-                            {
-                                system: "http://terminology.hl7.org/CodeSystem/risk-probability",
-                                code: predictionResult.risk_class === 1 ? "high" : "low",
-                                display: predictionResult.risk_level
-                            }
-                        ]
+            // Construir recurso RiskAssessment
+            const riskAssessment = {
+                resourceType: "RiskAssessment",
+                status: "final",
+                subject: {
+                    reference: `Patient/${patientId}`
+                },
+                occurrenceDateTime: new Date().toISOString(),
+                performer: {
+                    display: "NephroMind AI"
+                },
+                basis: [
+                    // Aquí podríamos referenciar las observaciones usadas si tuviéramos sus IDs
+                ],
+                prediction: [
+                    {
+                        outcome: {
+                            text: "Chronic Kidney Disease"
+                        },
+                        probabilityDecimal: predictionResult.probability,
+                        qualitativeRisk: {
+                            coding: [
+                                {
+                                    system: "http://terminology.hl7.org/CodeSystem/risk-probability",
+                                    code: predictionResult.risk_class === 1 ? "high" : "low",
+                                    display: predictionResult.risk_level
+                                }
+                            ]
+                        }
                     }
-                }
-            ],
-            note: [
-                {
-                    text: `Evaluación realizada por NephroMind AI. Factores principales: ${predictionResult.contributors.map(c => c.feature).join(', ')}`
-                }
-            ]
-        };
+                ],
+                note: [
+                    {
+                        text: `Evaluación realizada por NephroMind AI. Factores principales: ${predictionResult.contributors.map(c => c.feature).join(', ')}`
+                    }
+                ]
+            };
 
-        console.log('Enviando RiskAssessment a FHIR:', riskAssessment);
+            console.log('Enviando RiskAssessment a FHIR:', riskAssessment);
 
-        // Crear recurso en el servidor FHIR
-        const result = await client.create(riskAssessment);
-        console.log('RiskAssessment guardado con éxito:', result);
+            // Crear recurso en el servidor FHIR
+            const result = await client.create(riskAssessment);
+            console.log('RiskAssessment guardado con éxito:', result);
 
-        if (window.showNotification) {
-            window.showNotification('Evaluación guardada en la historia clínica del paciente (FHIR)', 'success');
-        }
+            if (window.showNotification) {
+                window.showNotification('Evaluación guardada en la historia clínica del paciente (FHIR)', 'success');
+            }
 
-    } catch (error) {
-        console.error('Error guardando RiskAssessment en FHIR:', error);
-        // No mostrar error al usuario si es porque no tiene permisos o no está conectado
-        if (window.showNotification && error.message && !error.message.includes('No authorized client')) {
-            window.showNotification('No se pudo guardar en la historia clínica. Verifique permisos.', 'warning');
+        } catch (error) {
+            console.error('Error guardando RiskAssessment en FHIR:', error);
+            // No mostrar error al usuario si es porque no tiene permisos o no está conectado
+            if (window.showNotification && error.message && !error.message.includes('No authorized client')) {
+                window.showNotification('No se pudo guardar en la historia clínica. Verifique permisos.', 'warning');
+            }
         }
     }
 }
