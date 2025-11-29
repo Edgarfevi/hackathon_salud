@@ -16,7 +16,7 @@ class MedicalRecordExtractor:
 
     def extract_patient_data(self, pdf_path: str) -> Dict[str, Any]:
         """
-        Uses Gemini 1.5 Flash to process the PDF directly (Multimodal).
+        Uses Gemini 2.5 Flash to process the PDF directly (Multimodal).
         Returns a dictionary matching the PatientData model.
         """
         if not self.model:

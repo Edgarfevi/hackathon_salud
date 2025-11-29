@@ -378,7 +378,8 @@ function renderRadarChart(result) {
     // Definir métricas clave y sus rangos "normales" aproximados para normalizar
     // Normalizaremos tal que 50 sea el valor "óptimo/medio", 0 muy bajo, 100 muy alto.
     // Top 5 contributors
-    const topContributors = contributors.slice(0, 5);
+    const contributorsList = result.contributors || [];
+    const topContributors = contributorsList.slice(0, 5);
     const labels = topContributors.map(c => formatFeatureName(c.feature));
     // Clamp values to 100 max for visual consistency
     const data = topContributors.map(c => {
