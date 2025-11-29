@@ -61,9 +61,10 @@ class KidneyDiseaseModel:
         self.explainer: Optional[shap.TreeExplainer] = None
         self.threshold: float = 0.5
         
-        # Ruta del modelo
+        # Rutas de archivos
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.model_path = os.path.join(current_dir, "kidney_model.pkl")
+        self.model_path_json = os.path.join(current_dir, "kidney_model.json")  # XGBoost nativo
+        self.metadata_path = os.path.join(current_dir, "kidney_model_metadata.pkl")  # Solo metadata
     
     def load_data(self, filepath: str) -> pd.DataFrame:
         """
@@ -253,35 +254,48 @@ class KidneyDiseaseModel:
             f.write(f"\nConfusion Matrix:\n{cm}")
     
     def save_model(self) -> None:
-        """Guarda el modelo y artefactos."""
-        artifacts = {
-            'model': self.model,
+        """Guarda el modelo usando XGBoost nativo JSON y metadata con joblib."""
+        # Guardar modelo XGBoost en formato JSON nativo
+        self.model.save_model(self.model_path_json)
+        logger.info(f"Modelo XGBoost guardado en: {self.model_path_json}")
+        
+        # Guardar metadata (scaler, columns, threshold) con joblib
+        metadata = {
             'scaler': self.scaler,
             'columns': self.columns,
             'all_columns': self.all_columns,
             'threshold': self.threshold
         }
-        joblib.dump(artifacts, self.model_path)
-        logger.info(f"Modelo guardado en: {self.model_path}")
+        joblib.dump(metadata, self.metadata_path)
+        logger.info(f"Metadata guardada en: {self.metadata_path}")
     
     def load_model(self) -> bool:
         """
-        Carga el modelo desde disco.
+        Carga el modelo desde disco usando XGBoost nativo JSON.
         
         Returns:
             True si se cargó exitosamente, False si no existe
         """
-        if not os.path.exists(self.model_path):
-            logger.warning(f"No se encontró modelo en: {self.model_path}")
+        if not os.path.exists(self.model_path_json):
+            logger.warning(f"No se encontró modelo en: {self.model_path_json}")
+            return False
+        
+        if not os.path.exists(self.metadata_path):
+            logger.warning(f"No se encontró metadata en: {self.metadata_path}")
             return False
         
         try:
-            artifacts = joblib.load(self.model_path)
-            self.model = artifacts['model']
-            self.scaler = artifacts['scaler']
-            self.columns = artifacts['columns']
-            self.all_columns = artifacts.get('all_columns', self.columns)
-            self.threshold = artifacts.get('threshold', 0.5)
+            # Cargar modelo XGBoost usando método nativo
+            self.model = XGBClassifier()
+            self.model.load_model(self.model_path_json)
+            logger.info(f"Modelo XGBoost cargado desde: {self.model_path_json}")
+            
+            # Cargar metadata
+            metadata = joblib.load(self.metadata_path)
+            self.scaler = metadata['scaler']
+            self.columns = metadata['columns']
+            self.all_columns = metadata.get('all_columns', self.columns)
+            self.threshold = metadata.get('threshold', 0.5)
             
             # Inicializar SHAP
             try:
@@ -295,6 +309,8 @@ class KidneyDiseaseModel:
             
         except Exception as e:
             logger.error(f"Error cargando modelo: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def predict(self, input_data: Dict[str, Any]) -> Dict[str, Any]:

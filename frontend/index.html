@@ -127,12 +127,12 @@
                     <div class="grid-2">
                         <div class="input-group">
                             <label>Edad <span class="required">*</span></label>
-                            <input type="number" name="Age" required min="0" max="120" placeholder="Ej: 61">
+                            <input type="number" name="Age" min="0" max="120" placeholder="Ej: 61">
                             <span class="field-hint">Años cumplidos</span>
                         </div>
                         <div class="input-group">
                             <label>Género <span class="required">*</span></label>
-                            <select name="Gender" required>
+                            <select name="Gender">
                                 <option value="">Seleccionar...</option>
                                 <option value="0">Masculino</option>
                                 <option value="1">Femenino</option>
@@ -179,8 +179,7 @@
                     <div class="grid-2">
                         <div class="input-group">
                             <label>IMC (Índice Masa Corporal) <span class="required">*</span></label>
-                            <input type="number" step="0.1" name="BMI" required placeholder="Ej: 24.5" min="10"
-                                max="60">
+                            <input type="number" step="0.1" name="BMI" placeholder="Ej: 24.5" min="10" max="60">
                             <span class="field-hint">kg/m². Normal: 18.5-24.9</span>
                         </div>
                         <div class="input-group">
@@ -318,12 +317,12 @@
                     <div class="grid-3">
                         <div class="input-group">
                             <label>Presión Sistólica <span class="required">*</span></label>
-                            <input type="number" name="SystolicBP" required placeholder="120" min="60" max="250">
+                            <input type="number" name="SystolicBP" placeholder="120" min="60" max="250">
                             <span class="field-hint">mmHg. Normal: &lt;120</span>
                         </div>
                         <div class="input-group">
                             <label>Presión Diastólica <span class="required">*</span></label>
-                            <input type="number" name="DiastolicBP" required placeholder="80" min="40" max="150">
+                            <input type="number" name="DiastolicBP" placeholder="80" min="40" max="150">
                             <span class="field-hint">mmHg. Normal: &lt;80</span>
                         </div>
                     </div>
@@ -332,7 +331,7 @@
                     <div class="grid-3">
                         <div class="input-group">
                             <label>Glucosa Ayunas <span class="required">*</span></label>
-                            <input type="number" step="0.1" name="FastingBloodSugar" required placeholder="90" min="40"
+                            <input type="number" step="0.1" name="FastingBloodSugar" placeholder="90" min="40"
                                 max="500">
                             <span class="field-hint">mg/dL. Normal: 70-100</span>
                         </div>
@@ -352,8 +351,8 @@
                     <div class="grid-3">
                         <div class="input-group highlight-critical">
                             <label>Creatinina Sérica <span class="required">*</span></label>
-                            <input type="number" step="0.01" name="SerumCreatinine" required placeholder="1.0" min="0.1"
-                                max="20" id="creatinineInput">
+                            <input type="number" step="0.01" name="SerumCreatinine" placeholder="1.0" min="0.1" max="20"
+                                id="creatinineInput">
                             <span class="field-hint">mg/dL. Normal: 0.7-1.3</span>
                         </div>
                         <div class="input-group highlight-critical">

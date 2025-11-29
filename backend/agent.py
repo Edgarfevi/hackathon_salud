@@ -16,8 +16,18 @@ logger = logging.getLogger(__name__)
 
 # Configuración de seguridad permisiva para contenido médico
 # Necesario para procesar historias clínicas sin bloqueos
-# Formato lista de diccionarios (más robusto)
-SAFETY_SETTINGS = [
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+# Formato usando enums (más compatible)
+SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+# Formato alternativo si el anterior falla
+SAFETY_SETTINGS_DICT = [
     {
         "category": "HARM_CATEGORY_HARASSMENT",
         "threshold": "BLOCK_NONE",
@@ -154,32 +164,85 @@ class MedicalRecordExtractor:
             max_output_tokens=4096
         )
         
-        # Llamar a Gemini con safety settings permisivos para contenido médico
-        response = self.model.generate_content(
-            [uploaded_file, prompt],
-            generation_config=generation_config,
-            safety_settings=SAFETY_SETTINGS
-        )
+        # Intentar con diferentes configuraciones de safety settings
+        response = None
+        last_error = None
+        
+        for safety_config_name, safety_config in [("enum", SAFETY_SETTINGS), ("dict", SAFETY_SETTINGS_DICT)]:
+            try:
+                logger.info(f"Intentando con safety config: {safety_config_name}")
+                response = self.model.generate_content(
+                    [uploaded_file, prompt],
+                    generation_config=generation_config,
+                    safety_settings=safety_config
+                )
+                break  # Si funciona, salir del loop
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Fallo con safety config {safety_config_name}: {e}")
+                continue
+        
+        if response is None:
+            raise Exception(f"No se pudo generar respuesta con ninguna configuración de seguridad: {last_error}")
         
         # Verificar si la respuesta fue bloqueada
         if not response.candidates:
-            logger.error(f"Gemini no devolvió candidatos ({strategy})")
-            raise Exception("La respuesta de Gemini fue bloqueada. Intenta con otro PDF.")
+            logger.error(f"❌ Gemini no devolvió candidatos ({strategy})")
+            logger.error(f"Prompt feedback: {response.prompt_feedback if hasattr(response, 'prompt_feedback') else 'N/A'}")
+            raise Exception("La respuesta de Gemini fue bloqueada. El PDF puede contener contenido sensible que Gemini no procesa.")
         
         candidate = response.candidates[0]
         
-        # Verificar finish_reason
+        # Log detallado para debugging
+        logger.info(f"Finish reason: {candidate.finish_reason if hasattr(candidate, 'finish_reason') else 'N/A'}")
+        if hasattr(candidate, 'safety_ratings'):
+            logger.info(f"Safety ratings: {candidate.safety_ratings}")
+        
+        # Verificar finish_reason  
         # 1=STOP (normal), 2=SAFETY, 3=RECITATION, 4=MAX_TOKENS
-        if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
-            logger.warning(f"Respuesta bloqueada por filtro de seguridad ({strategy})")
-            raise Exception("El contenido del PDF fue bloqueado por filtros de seguridad de Gemini.")
+        if hasattr(candidate, 'finish_reason'):
+            finish_reason = candidate.finish_reason
+            
+            # Mapeo de finish_reason a nombre legible
+            finish_reason_names = {
+                0: "UNSPECIFIED",
+                1: "STOP",
+                2: "SAFETY",
+                3: "RECITATION",
+                4: "MAX_TOKENS",
+                5: "OTHER"
+            }
+            
+            finish_reason_name = finish_reason_names.get(finish_reason, str(finish_reason))
+            logger.info(f"Finish reason code {finish_reason} = {finish_reason_name}")
+            
+            if finish_reason == 2:  # SAFETY
+                logger.error(f"❌ Respuesta bloqueada por filtro de seguridad ({strategy})")
+                logger.error(f"Safety ratings: {candidate.safety_ratings if hasattr(candidate, 'safety_ratings') else 'N/A'}")
+                raise Exception(
+                    f"El contenido del PDF fue bloqueado por filtros de seguridad de Gemini. "
+                    f"Esto puede ocurrir si el PDF contiene información sensible o contenido que Gemini considera peligroso. "
+                    f"Safety ratings: {candidate.safety_ratings if hasattr(candidate, 'safety_ratings') else 'N/A'}"
+                )
         
         # Obtener texto de manera segura
-        if hasattr(response, 'text') and response.text:
-            content = response.text
-        elif candidate.content and candidate.content.parts:
-            content = candidate.content.parts[0].text
-        else:
+        content = None
+        if hasattr(response, 'text'):
+            try:
+                content = response.text
+            except Exception as e:
+                logger.warning(f"No se pudo obtener response.text: {e}")
+        
+        if not content and candidate.content and candidate.content.parts:
+            try:
+                content = candidate.content.parts[0].text
+            except Exception as e:
+                logger.error(f"No se pudo obtener texto de candidate.content.parts: {e}")
+        
+        if not content:
+            logger.error(f"❌ No se pudo extraer texto de la respuesta de Gemini")
+            logger.error(f"Response: {response}")
+            logger.error(f"Candidate: {candidate}")
             raise Exception("No se pudo extraer texto de la respuesta de Gemini.")
         
         logger.debug(f"Respuesta de Gemini ({strategy}): {content[:500]}...")
