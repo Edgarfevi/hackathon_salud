@@ -11,7 +11,7 @@ class MedicalRecordExtractor:
         api_key = os.getenv("GEMINI_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            self.model = genai.GenerativeModel('gemini-3-pro-preview')
         else:
             self.model = None
 
@@ -101,6 +101,11 @@ class MedicalRecordExtractor:
 
             2. **CLINICAL CALCULATIONS (DO NOT RETURN 0 IF INPUTS EXIST):**
                - **BMI:** Weight(kg) / Height(m)^2. Example: 80kg, 1.80m -> 80 / 3.24 = 24.7.
+               - **BMI INFERENCE (CRITICAL):** NEVER RETURN 0.00.
+                 - If "Obesidad" -> Estimate BMI=32.0.
+                 - If "Sobrepeso" -> Estimate BMI=27.0.
+                 - If "Delgado/Bajo peso" -> Estimate BMI=18.5.
+                 - If no data -> Estimate BMI=24.0 (Normal).
                - **eGFR:** Use CKD-EPI formula. If Creatinine is found, YOU MUST CALCULATE eGFR.
                - **BUN:** If only Urea is given: BUN = Urea / 2.14.
 

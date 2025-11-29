@@ -26,13 +26,14 @@ class KidneyDiseaseModel:
 
     def load_data(self, filepath):
         df = pd.read_csv(filepath)
-        # Drop irrelevant columns as per medical feedback
-        # Also dropping GFR as it's a diagnostic criterion (data leakage)
+        
+        # Drop irrelevant columns and target leakage
         columns_to_drop = [
             'PatientID', 'DoctorInCharge', 
             'DietQuality', 'SleepQuality', 
             'WaterQuality', 'QualityOfLifeScore',
-            'GFR'  # Diagnostic criterion - would be data leakage
+            'GFR',
+            'TimeToEventMonths' # Target Leakage!
         ]
         
         # Drop only those that exist in the dataframe
