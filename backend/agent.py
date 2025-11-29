@@ -121,12 +121,14 @@ class MedicalRecordExtractor:
                - **HbA1c:** If missing but Glucose > 126 -> Estimate 7.5.
                - **Cholesterol:** If missing, estimate based on HistoryDLD (e.g., Total=240 if DLD=1).
 
-            6. **Defaults (Use ONLY if absolutely no clue found):**
-               - Age: 50, Gender: 0, Ethnicity: 3
-               - BMI: 25.0, BP: 120/80, Glucose: 90
-               - Creatinine: 1.0, GFR: 90
+            6. **Symptoms:**
+               - Look for "Edemas", "Hinchazón" -> Edema=1.
+               - "Cansancio", "Fatiga", "Asthenia" -> Fatigue=1.
+               - "Prurito", "Picor" -> Itching=5.0.
+
+            The clinical history is in SPANISH. Translate medical terms accurately to the required JSON keys.
                
-            EXTRACT EVERYTHING. BE A CLINICAL DETECTIVE.
+            EXTRACT EVERYTHING. BE A CLINICAL DETECTIVE. DO NOT INVENT DATA.
             """
 
             response = self.model.generate_content([myfile, prompt])
