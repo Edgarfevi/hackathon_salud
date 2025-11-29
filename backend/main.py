@@ -141,7 +141,7 @@ class PatientData(BaseModel):
     SerumCreatinine: float = Field(default=1.0, ge=0.1, le=20)
     BUN: float = Field(default=15.0, ge=1, le=150, description="También acepta BUNLevels")
     GFR: float = Field(default=90.0, ge=1, le=150, description="eGFR calculado")
-    ProteinInUrine: float = Field(default=0.0, ge=0, le=10)
+    ProteinInUrine: float = Field(default=0.0, ge=0, le=100, description="g/L - Permite valores patológicos extremos")
     ACR: float = Field(default=15.0, ge=0, le=5000)
     
     # Electrolitos

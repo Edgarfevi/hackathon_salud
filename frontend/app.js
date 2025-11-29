@@ -86,21 +86,21 @@ function showNotification(message, type = 'info') {
     const container = document.getElementById('notificationContainer') || document.body;
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    
+
     const icons = {
         success: 'fa-check-circle',
         error: 'fa-times-circle',
         warning: 'fa-exclamation-triangle',
         info: 'fa-info-circle'
     };
-    
+
     notification.innerHTML = `
         <i class="fa-solid ${icons[type] || icons.info}"></i>
         <span>${message}</span>
     `;
-    
+
     container.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.style.animation = 'slideOut 0.3s ease forwards';
         setTimeout(() => notification.remove(), 300);
@@ -133,23 +133,23 @@ const ALL_FIELDS = [
 function updateCompleteness() {
     let filledCount = 0;
     let missingCritical = [];
-    
+
     ALL_FIELDS.forEach(field => {
         const input = document.querySelector(`[name="${field}"]`);
         if (input && input.value && input.value !== '') {
             filledCount++;
         }
     });
-    
+
     CRITICAL_FIELDS.forEach(field => {
         const input = document.querySelector(`[name="${field}"]`);
         if (!input || !input.value || input.value === '') {
             missingCritical.push(field);
         }
     });
-    
+
     const percentage = Math.round((filledCount / ALL_FIELDS.length) * 100);
-    
+
     const fillEl = document.getElementById('completenessFill');
     const textEl = document.getElementById('completenessText');
     if (fillEl) {
@@ -157,15 +157,15 @@ function updateCompleteness() {
         fillEl.style.backgroundColor = percentage > 70 ? '#10b981' : percentage > 40 ? '#f59e0b' : '#ef4444';
     }
     if (textEl) textEl.textContent = `${percentage}%`;
-    
+
     // Update missing data alerts
     const alertsContainer = document.getElementById('missingDataAlerts');
     const missingList = document.getElementById('missingDataList');
-    
+
     if (alertsContainer && missingList) {
         if (missingCritical.length > 0) {
             alertsContainer.classList.remove('hidden');
-            missingList.innerHTML = missingCritical.map(field => 
+            missingList.innerHTML = missingCritical.map(field =>
                 `<li><i class="fa-solid fa-circle-exclamation"></i> ${formatFeatureName(field)}</li>`
             ).join('');
         } else {
@@ -203,19 +203,19 @@ function calculateGFR() {
     }
 
     window.calculatedGFR = egfr;
-    
+
     const gfrInput = document.getElementById('gfrInput');
     if (gfrInput) {
         gfrInput.value = egfr.toFixed(1);
     }
-    
+
     // Update GFR stage display
     const stage = getGFRStage(egfr);
     const stageEl = document.getElementById('gfrStage');
     if (stageEl) {
         stageEl.innerHTML = `<strong style="color: ${stage.color}">${stage.stage}</strong> - ${stage.description}`;
     }
-    
+
     updateCompleteness();
     validateCriticalValues();
 }
@@ -236,9 +236,9 @@ function getGFRStage(gfr) {
 function updateACRStage() {
     const acr = parseFloat(document.getElementById('acrInput')?.value);
     const stageEl = document.getElementById('acrStage');
-    
+
     if (!acr || !stageEl) return;
-    
+
     const stage = getACRStage(acr);
     stageEl.innerHTML = `<strong style="color: ${stage.color}">${stage.stage}</strong> - ${stage.description}`;
 }
@@ -256,28 +256,28 @@ function getACRStage(acr) {
 function calculateKFRE(age, gender, egfr, acr) {
     // 4-variable KFRE equation
     // Source: Tangri et al. JAMA 2016
-    
+
     if (!egfr || egfr >= 60 || !acr) return null;
-    
+
     // Log transform ACR
     const logACR = Math.log(acr);
-    
+
     // 2-year risk
     const baseline2yr = 1 - 0.9832;
-    const lp2yr = -0.2201 * (age/10 - 7.036) + 
-                  0.2467 * (gender === 0 ? 1 : 0) - 
-                  0.5567 * (egfr/5 - 7.222) + 
-                  0.4510 * (logACR - 5.137);
+    const lp2yr = -0.2201 * (age / 10 - 7.036) +
+        0.2467 * (gender === 0 ? 1 : 0) -
+        0.5567 * (egfr / 5 - 7.222) +
+        0.4510 * (logACR - 5.137);
     const risk2yr = 1 - Math.pow(1 - baseline2yr, Math.exp(lp2yr));
-    
+
     // 5-year risk
     const baseline5yr = 1 - 0.9365;
-    const lp5yr = -0.2201 * (age/10 - 7.036) + 
-                  0.2467 * (gender === 0 ? 1 : 0) - 
-                  0.5567 * (egfr/5 - 7.222) + 
-                  0.4510 * (logACR - 5.137);
+    const lp5yr = -0.2201 * (age / 10 - 7.036) +
+        0.2467 * (gender === 0 ? 1 : 0) -
+        0.5567 * (egfr / 5 - 7.222) +
+        0.4510 * (logACR - 5.137);
     const risk5yr = 1 - Math.pow(1 - baseline5yr, Math.exp(lp5yr));
-    
+
     return {
         risk2yr: Math.min(Math.max(risk2yr * 100, 0), 100),
         risk5yr: Math.min(Math.max(risk5yr * 100, 0), 100)
@@ -303,13 +303,13 @@ const CRITICAL_RANGES = {
 
 function validateCriticalValues() {
     const alerts = [];
-    
+
     for (const [field, ranges] of Object.entries(CRITICAL_RANGES)) {
         const input = document.querySelector(`[name="${field}"]`);
         if (!input || !input.value) continue;
-        
+
         const value = parseFloat(input.value);
-        
+
         if (ranges.criticalMin !== undefined && value < ranges.criticalMin) {
             alerts.push({
                 field,
@@ -352,7 +352,7 @@ function validateCriticalValues() {
             input.classList.remove('critical-value', 'warning-value');
         }
     }
-    
+
     return alerts;
 }
 
@@ -362,40 +362,40 @@ function validateCriticalValues() {
 
 function getSuggestedTests(formData) {
     const tests = [];
-    
+
     // If no creatinine
     if (!formData.SerumCreatinine) {
         tests.push({ name: 'Creatinina sérica', priority: 'high', reason: 'Esencial para calcular eGFR' });
     }
-    
+
     // If no ACR/Proteinuria
     if (!formData.ACR && !formData.ProteinInUrine) {
         tests.push({ name: 'Cociente Albúmina/Creatinina en orina', priority: 'high', reason: 'Detecta daño renal temprano' });
     }
-    
+
     // If diabetes suspected but no HbA1c
     if ((formData.HistoryDiabetes === 1 || formData.FastingBloodSugar > 126) && !formData.HbA1c) {
         tests.push({ name: 'HbA1c', priority: 'medium', reason: 'Control glucémico en diabéticos' });
     }
-    
+
     // If GFR < 60, suggest additional tests
     const gfr = parseFloat(formData.GFR);
     if (gfr && gfr < 60) {
         tests.push({ name: 'Ecografía renal', priority: 'high', reason: 'Evaluación estructural del riñón' });
         tests.push({ name: 'Análisis de orina completo', priority: 'medium', reason: 'Detectar sedimento activo' });
-        
+
         if (gfr < 45) {
             tests.push({ name: 'PTH y Vitamina D', priority: 'medium', reason: 'Metabolismo óseo-mineral en ERC' });
         }
     }
-    
+
     // If hypertension
     if (formData.SystolicBP > 140 || formData.DiastolicBP > 90) {
         if (!formData.CholesterolTotal) {
             tests.push({ name: 'Perfil lipídico completo', priority: 'medium', reason: 'Riesgo cardiovascular' });
         }
     }
-    
+
     return tests;
 }
 
@@ -484,7 +484,7 @@ function displayResult(result, formData) {
 
     // ERC Staging Panel
     displayERCStaging(formData);
-    
+
     // KFRE Risk
     displayKFRE(formData);
 
@@ -509,7 +509,7 @@ function displayResult(result, formData) {
     // Store for export
     window.lastResult = result;
     window.lastFormData = formData;
-    
+
     // Scroll to results
     resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -517,19 +517,19 @@ function displayResult(result, formData) {
 function displayERCStaging(formData) {
     const gfr = parseFloat(formData.GFR);
     const acr = parseFloat(formData.ACR);
-    
+
     const gfrStageEl = document.getElementById('gfrStageValue');
     const acrStageEl = document.getElementById('acrStageValue');
     const ercGfrEl = document.getElementById('ercGfrStage');
     const ercAcrEl = document.getElementById('ercAcrStage');
-    
+
     if (gfr && gfrStageEl) {
         const stage = getGFRStage(gfr);
         gfrStageEl.textContent = stage.stage;
         gfrStageEl.style.color = stage.color;
         ercGfrEl.className = `erc-gfr-stage risk-${stage.risk}`;
     }
-    
+
     if (acr && acrStageEl) {
         const stage = getACRStage(acr);
         acrStageEl.textContent = stage.stage;
@@ -544,14 +544,14 @@ function displayKFRE(formData) {
     const acr = parseFloat(formData.ACR);
     const age = parseFloat(formData.Age);
     const gender = parseInt(formData.Gender);
-    
+
     if (gfr && gfr < 60 && acr) {
         const kfre = calculateKFRE(age, gender, gfr, acr);
         if (kfre) {
             kfreSection.classList.remove('hidden');
             document.getElementById('kfre2year').textContent = `${kfre.risk2yr.toFixed(1)}%`;
             document.getElementById('kfre5year').textContent = `${kfre.risk5yr.toFixed(1)}%`;
-            
+
             // Color code based on risk
             const risk2el = document.getElementById('kfre2year');
             const risk5el = document.getElementById('kfre5year');
@@ -566,12 +566,12 @@ function displayKFRE(formData) {
 function displayEGFRInfo(formData) {
     const panel = document.getElementById('egfrInfoPanel');
     const gfr = parseFloat(formData.GFR);
-    
+
     if (!gfr || !panel) return;
-    
+
     const stage = getGFRStage(gfr);
     panel.classList.remove('hidden');
-    
+
     let html = `
         <div class="egfr-header">
             <strong>eGFR Calculado (CKD-EPI 2021):</strong> ${gfr.toFixed(1)} ml/min/1.73m²
@@ -580,7 +580,7 @@ function displayEGFRInfo(formData) {
             <strong>Estadio ERC:</strong> ${stage.stage} - ${stage.description}
         </div>
     `;
-    
+
     if (gfr < 60) {
         html += `<div class="egfr-alert critical">⚠️ eGFR < 60: Enfermedad Renal Crónica confirmada (según KDIGO)</div>`;
     } else if (gfr < 90) {
@@ -588,7 +588,7 @@ function displayEGFRInfo(formData) {
     } else {
         html += `<div class="egfr-alert success">✓ Función renal dentro de límites normales</div>`;
     }
-    
+
     panel.innerHTML = html;
 }
 
@@ -596,12 +596,12 @@ function displayCriticalAlerts(formData) {
     const container = document.getElementById('criticalAlerts');
     const list = document.getElementById('criticalAlertsList');
     const alerts = validateCriticalValues();
-    
+
     if (alerts.length === 0) {
         container.classList.add('hidden');
         return;
     }
-    
+
     container.classList.remove('hidden');
     list.innerHTML = alerts.map(alert => `
         <div class="alert-item ${alert.type}">
@@ -615,12 +615,12 @@ function displaySuggestedTests(formData) {
     const container = document.getElementById('suggestedTests');
     const list = document.getElementById('suggestedTestsList');
     const tests = getSuggestedTests(formData);
-    
+
     if (tests.length === 0) {
         container.classList.add('hidden');
         return;
     }
-    
+
     container.classList.remove('hidden');
     list.innerHTML = tests.map(test => `
         <div class="test-item priority-${test.priority}">
@@ -924,7 +924,7 @@ function exportResults(format) {
         const printWindow = window.open('', '_blank');
         const gfrStage = gfr ? getGFRStage(gfr) : null;
         const acrStage = acr ? getACRStage(acr) : null;
-        
+
         printWindow.document.write(`
             <html>
                 <head>
@@ -1072,7 +1072,7 @@ async function handleFileUpload(file) {
 
         // Show extraction summary
         document.getElementById('extractionSummary').classList.remove('hidden');
-        
+
         showNotification('✅ Datos extraídos del PDF. Por favor revise y complete los campos faltantes.', 'success');
 
         // Scroll to top to review
@@ -1090,19 +1090,39 @@ async function handleFileUpload(file) {
 
 function populateForm(data) {
     window.autoFilledFields.clear();
-    
+
     for (const [key, value] of Object.entries(data)) {
         if (value === null || value === undefined || value === '') continue;
-        
+
+        let finalValue = value;
+
+        // Conversión de unidades para ProteinInUrine (mg/dL -> g/L)
+        if (key === 'ProteinInUrine' && typeof value === 'number' && value > 10) {
+            finalValue = (value / 100).toFixed(2);  // Redondear a 2 decimales
+            console.log(`Convirtiendo ProteinInUrine: ${value} mg/dL -> ${finalValue} g/L`);
+        }
+
         const input = document.querySelector(`[name="${key}"]`);
         if (input) {
-            input.value = value;
+            // Asegurar que el valor es válido antes de asignarlo
+            if (input.type === 'number') {
+                const numValue = parseFloat(finalValue);
+                if (!isNaN(numValue)) {
+                    input.value = numValue;
+                } else {
+                    console.warn(`Valor inválido para ${key}: ${finalValue}, omitiendo`);
+                    continue;
+                }
+            } else {
+                input.value = finalValue;
+            }
+
             input.classList.add('auto-filled');
             window.autoFilledFields.add(key);
-            
+
             // Trigger change event for listeners
             input.dispatchEvent(new Event('change'));
-            
+
             // Highlight animation
             input.classList.add('highlight-transition');
             setTimeout(() => input.classList.remove('highlight-transition'), 2000);
@@ -1113,7 +1133,7 @@ function populateForm(data) {
     if (data.SerumCreatinine) {
         calculateGFR();
     }
-    
+
     // Update ACR staging
     if (data.ACR) {
         updateACRStage();
@@ -1163,13 +1183,13 @@ function loadLauraCase() {
         Ethnicity: 3, // Hispano
         SocioeconomicStatus: 1, // Medio
         EducationLevel: 1, // Secundaria
-        
+
         // Estilo de vida
         BMI: 27.5, // Sobrepeso leve
         Smoking: 0,
         AlcoholConsumption: 2,
         PhysicalActivity: 1.5, // Sedentaria
-        
+
         // Historial - El problema: Solo sabe que tiene HTA
         HistoryHTN: 1, // ¡5 años con hipertensión!
         HistoryDiabetes: 0,
@@ -1179,16 +1199,16 @@ function loadLauraCase() {
         HistoryObesity: 0,
         PreviousAcuteKidneyInjury: 0,
         UrinaryTractInfections: 0,
-        
+
         // Antecedentes familiares
         FamilyHistoryKidneyDisease: 0,
         FamilyHistoryHypertension: 1,
         FamilyHistoryDiabetes: 1,
-        
+
         // Signos vitales - HTA no bien controlada
         SystolicBP: 145,
         DiastolicBP: 88,
-        
+
         // Labs - Aquí está el problema oculto
         FastingBloodSugar: 105, // Prediabetes
         HbA1c: 6.1, // Prediabetes
@@ -1197,20 +1217,20 @@ function loadLauraCase() {
         // GFR se calculará automáticamente -> ~42 ml/min (¡ERC G3b!)
         ProteinInUrine: 0.2,
         ACR: 45, // ¡Albuminuria moderada A2!
-        
+
         // Electrolitos normales
         SerumElectrolytesSodium: 139,
         SerumElectrolytesPotassium: 4.8,
         SerumElectrolytesCalcium: 9.2,
         SerumElectrolytesPhosphorus: 3.8,
         HemoglobinLevels: 11.8, // Anemia leve - común en ERC
-        
+
         // Perfil lipídico
         CholesterolTotal: 215,
         CholesterolLDL: 125,
         CholesterolHDL: 48,
         CholesterolTriglycerides: 165,
-        
+
         // Medicación - Solo toma antihipertensivo
         ACEInhibitors: 0, // ¡No toma! Debería
         Diuretics: 0,
@@ -1218,14 +1238,14 @@ function loadLauraCase() {
         Statins: 0,
         AntidiabeticMedications: 0,
         NSAIDsUse: 3, // Usa ibuprofeno frecuentemente para dolores
-        
+
         // Síntomas - El cansancio que ella atribuye a la edad
         Edema: 0,
         Fatigue: 1, // ¡SÍNTOMA CLAVE!
         NauseaVomiting: 0,
         MuscleCramps: 1, // Calambres ocasionales
         Itching: 0,
-        
+
         // Otros
         HeavyMetalsExposure: 0,
         OccupationalExposureChemicals: 0,
@@ -1233,16 +1253,16 @@ function loadLauraCase() {
         MedicationAdherence: 7,
         HealthLiteracy: 5
     };
-    
+
     // Poblar el formulario
     populateForm(lauraData);
-    
+
     // Ocultar el banner de demo
     document.getElementById('demoBanner').style.display = 'none';
-    
+
     // Mostrar mensaje
     showNotification('✅ Caso Laura cargado. Esta paciente representa el 80% de casos no diagnosticados. Revise los datos y analice el riesgo.', 'info');
-    
+
     // Mostrar contexto clínico
     showClinicalContext({
         name: 'Laura',
@@ -1260,11 +1280,11 @@ function showClinicalContext(patient) {
         contextPanel = document.createElement('div');
         contextPanel.id = 'clinicalContextPanel';
         contextPanel.className = 'clinical-context';
-        
+
         const header = document.querySelector('header');
         header.after(contextPanel);
     }
-    
+
     contextPanel.innerHTML = `
         <div class="context-header">
             <i class="fa-solid fa-user-doctor"></i>
@@ -1291,55 +1311,55 @@ function showClinicalContext(patient) {
 function calculateCardioRenalRisk(formData) {
     let score = 0;
     let factors = [];
-    
+
     // Age risk
     const age = parseFloat(formData.Age);
     if (age >= 65) { score += 2; factors.push('Edad ≥65'); }
     else if (age >= 55) { score += 1; factors.push('Edad 55-64'); }
-    
+
     // Hypertension
     if (formData.HistoryHTN === 1 || formData.SystolicBP > 140) {
         score += 2;
         factors.push('Hipertensión');
     }
-    
+
     // Diabetes
     if (formData.HistoryDiabetes === 1 || formData.HbA1c > 6.5) {
         score += 2;
         factors.push('Diabetes/Prediabetes');
     }
-    
+
     // GFR
     const gfr = parseFloat(formData.GFR);
     if (gfr && gfr < 30) { score += 4; factors.push('ERC G4-G5'); }
     else if (gfr && gfr < 45) { score += 3; factors.push('ERC G3b'); }
     else if (gfr && gfr < 60) { score += 2; factors.push('ERC G3a'); }
-    
+
     // Albuminuria
     const acr = parseFloat(formData.ACR);
     if (acr && acr >= 300) { score += 3; factors.push('Albuminuria severa'); }
     else if (acr && acr >= 30) { score += 2; factors.push('Albuminuria moderada'); }
-    
+
     // Cardiovascular history
     if (formData.HistoryCHD === 1) { score += 2; factors.push('Enfermedad coronaria'); }
     if (formData.HistoryVascular === 1) { score += 1; factors.push('Enfermedad vascular'); }
-    
+
     // Lipids
     if (formData.CholesterolLDL > 130) { score += 1; factors.push('LDL elevado'); }
-    
+
     // Smoking
     if (formData.Smoking === 1) { score += 1; factors.push('Tabaquismo'); }
-    
+
     // BMI
     if (formData.BMI > 30) { score += 1; factors.push('Obesidad'); }
-    
+
     // Risk category
     let category, color;
     if (score >= 8) { category = 'MUY ALTO'; color = '#dc2626'; }
     else if (score >= 5) { category = 'ALTO'; color = '#f97316'; }
     else if (score >= 3) { category = 'MODERADO'; color = '#f59e0b'; }
     else { category = 'BAJO'; color = '#10b981'; }
-    
+
     return { score, category, color, factors };
 }
 
@@ -1347,21 +1367,21 @@ function displayCardioRenalRisk(formData) {
     const risk = calculateCardioRenalRisk(formData);
     const gfr = parseFloat(formData.GFR);
     const acr = parseFloat(formData.ACR);
-    
+
     // Crear o actualizar panel
     let panel = document.getElementById('cardioRenalPanel');
     if (!panel) {
         panel = document.createElement('div');
         panel.id = 'cardioRenalPanel';
         panel.className = 'cardio-renal-panel';
-        
+
         const ercStaging = document.getElementById('ercStaging');
         if (ercStaging) ercStaging.after(panel);
     }
-    
+
     const gfrStage = gfr ? getGFRStage(gfr) : null;
     const acrStage = acr ? getACRStage(acr) : null;
-    
+
     panel.innerHTML = `
         <h3><i class="fa-solid fa-heart-pulse"></i> Riesgo Cardio-Renal Integrado</h3>
         <div class="cardio-renal-grid">
@@ -1388,7 +1408,7 @@ function displayCardioRenalRisk(formData) {
 
 // Actualizar displayResult para incluir cardio-renal
 const originalDisplayResult = displayResult;
-displayResult = function(result, formData) {
+displayResult = function (result, formData) {
     originalDisplayResult(result, formData);
     displayCardioRenalRisk(formData);
 };
@@ -1476,7 +1496,7 @@ function exportToFHIR(formData, result) {
             }
         ]
     };
-    
+
     return fhirBundle;
 }
 
@@ -1509,7 +1529,7 @@ function addFHIRExportButton() {
 document.addEventListener('DOMContentLoaded', () => {
     updateCompleteness();
     showStep(1);
-    
+
     // Add FHIR button when results are shown
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -1518,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    
+
     const resultCard = document.getElementById('result');
     if (resultCard) {
         observer.observe(resultCard, { attributes: true, attributeFilter: ['class'] });
