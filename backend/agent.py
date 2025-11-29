@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import fitz  # PyMuPDF
 import google.generativeai as genai
 from typing import Dict, Any
@@ -29,9 +30,9 @@ class MedicalRecordExtractor:
             print(f"DEBUG: File uploaded: {myfile.name}")
 
             prompt = """
-            You are an expert medical data extractor. Your goal is to extract structured patient data from the provided clinical history PDF (which may be in Spanish or English).
+            You are an expert medical data extractor and CLINICAL DOCTOR. Your goal is to extract structured patient data from the provided clinical history PDF.
             
-            EXTRACT EVERY POSSIBLE FIELD. If a value is not explicitly stated, TRY TO INFER IT from context, medications, diagnoses, or notes.
+            ACT AS A DOCTOR: If values are missing, CALCULATE them using available data (e.g., BMI from height/weight, eGFR from creatinine/age/gender).
             
             Return ONLY a valid JSON object matching this structure. Do not include markdown formatting.
             
@@ -41,7 +42,7 @@ class MedicalRecordExtractor:
                 "Ethnicity": int (0=Caucasian, 1=African American, 2=Asian, 3=Hispanic, 4=Other),
                 "SocioeconomicStatus": int (0=Low, 1=Middle, 2=High) (Infer from occupation/address if possible, else 1),
                 "EducationLevel": int (0=None, 1=HighSchool, 2=Bachelor, 3=Higher) (Infer from occupation if possible, else 1),
-                "BMI": float,
+                "BMI": float (CALCULATE if Height/Weight available),
                 "Smoking": int (0=No, 1=Yes),
                 "AlcoholConsumption": float (0-20 units/week),
                 "PhysicalActivity": float (0-10 hours/week),
@@ -62,7 +63,7 @@ class MedicalRecordExtractor:
                 "HbA1c": float,
                 "SerumCreatinine": float,
                 "BUN": float,
-                "GFR": float,
+                "GFR": float (CALCULATE using CKD-EPI if Creatinine/Age/Gender available),
                 "ProteinInUrine": float,
                 "ACR": float,
                 "SerumElectrolytesSodium": float,
@@ -92,68 +93,64 @@ class MedicalRecordExtractor:
                 "HealthLiteracy": float (0-10 scale)
             }
 
-            CRITICAL INFERENCE RULES (Apply these aggressively):
+            CRITICAL INFERENCE & CALCULATION RULES:
 
             1. **Demographics:**
-               - **Gender:** Look for "Masculino", "Hombre", "Varón", "Male" -> 0. "Femenino", "Mujer", "Female" -> 1.
-               - **Ethnicity:** If "Hispano", "Latino" -> 3. If "Blanco", "Caucásico" -> 0. Default to 3 if name/location implies Hispanic context.
+               - **Gender:** "Masculino/Hombre" -> 0. "Femenino/Mujer" -> 1.
+               - **Ethnicity:** "Hispano/Latino" -> 3. "Blanco" -> 0. Default to 3 if context implies Hispanic.
 
-            2. **BMI & Obesity:**
-               - Calculate BMI if Weight (kg) and Height (m) are present: Weight / (Height^2).
-               - If "Obesidad" or "Obesity" mentioned -> HistoryObesity=1. Estimate BMI=32.0 if missing.
-               - If "Sobrepeso" or "Overweight" -> Estimate BMI=27.0.
+            2. **CLINICAL CALCULATIONS (DO NOT RETURN 0 IF INPUTS EXIST):**
+               - **BMI:** Weight(kg) / Height(m)^2. Example: 80kg, 1.80m -> 80 / 3.24 = 24.7.
+               - **eGFR:** Use CKD-EPI formula. If Creatinine is found, YOU MUST CALCULATE eGFR.
+               - **BUN:** If only Urea is given: BUN = Urea / 2.14.
 
             3. **Conditions (History):**
-               - **Diabetes:** "Diabetes Mellitus", "DM2", "DM1", "Diabético" -> HistoryDiabetes=1.
-               - **Hypertension:** "HTA", "Hipertensión", "High Blood Pressure" -> HistoryHTN=1.
-               - **Dyslipidemia:** "Dislipemia", "Colesterol alto", "Hyperlipidemia" -> HistoryDLD=1.
-               - **Vascular/Heart:** "Infarto", "Ictus", "ACV", "Angina", "Coronary" -> HistoryCHD=1 or HistoryVascular=1.
+               - **Diabetes:** "Diabetes", "DM2", "Diabético" -> HistoryDiabetes=1.
+               - **Hypertension:** "HTA", "Hipertensión" -> HistoryHTN=1.
+               - **Dyslipidemia:** "Dislipemia", "Colesterol alto" -> HistoryDLD=1.
+               - **Obesity:** "Obesidad" -> HistoryObesity=1. (Also check calculated BMI > 30).
 
             4. **Medications (Infer usage):**
-               - **ACE Inhibitors:** Enalapril, Lisinopril, Ramipril, Perindopril -> ACEInhibitors=1.
-               - **Statins:** Atorvastatina, Simvastatina, Rosuvastatina -> Statins=1.
-               - **Diuretics:** Furosemida, Hidroclorotiazida, Espironolactona -> Diuretics=1.
-               - **Antidiabetics:** Metformina, Insulina, Sitagliptina, Empagliflozina -> AntidiabeticMedications=1.
-               - **HTN Meds:** Any of the above BP meds or Amlodipino, Losartan, Valsartan -> HTNmeds=1.
+               - **ACE Inhibitors:** Enalapril, Lisinopril, Ramipril -> ACEInhibitors=1.
+               - **Statins:** Atorvastatina, Simvastatina -> Statins=1.
+               - **Diuretics:** Furosemida, Hidroclorotiazida -> Diuretics=1.
+               - **Antidiabetics:** Metformina, Insulina -> AntidiabeticMedications=1.
 
             5. **Labs & Vitals (Infer/Estimate):**
                - **BP:** If "Normotenso" -> 120/80. If "Hipertenso mal controlado" -> 150/95.
-               - **BUN:** If only Urea is given: BUN = Urea / 2.14.
-               - **HbA1c:** If missing but Glucose > 126 (Diabetic) -> Estimate 7.5. If Glucose < 100 -> Estimate 5.0.
-               - **Cholesterol:** If missing, estimate based on HistoryDLD (e.g., Total=240 if DLD=1, else 190).
+               - **HbA1c:** If missing but Glucose > 126 -> Estimate 7.5.
+               - **Cholesterol:** If missing, estimate based on HistoryDLD (e.g., Total=240 if DLD=1).
 
-            6. **Symptoms:**
-               - Look for "Edemas", "Hinchazón" -> Edema=1.
-               - "Cansancio", "Fatiga", "Asthenia" -> Fatigue=1.
-               - "Prurito", "Picor" -> Itching=5.0.
-
-            7. **Defaults (Use ONLY if absolutely no clue found):**
-               - Age: 50
-               - Gender: 0
-               - Ethnicity: 3
-               - BMI: 25.0
-               - BP: 120/80
-               - Glucose: 90
-               - Creatinine: 1.0
-               - GFR: 90
+            6. **Defaults (Use ONLY if absolutely no clue found):**
+               - Age: 50, Gender: 0, Ethnicity: 3
+               - BMI: 25.0, BP: 120/80, Glucose: 90
+               - Creatinine: 1.0, GFR: 90
                
-            EXTRACT EVERYTHING YOU CAN. BE A DETECTIVE.
+            EXTRACT EVERYTHING. BE A CLINICAL DETECTIVE.
             """
 
             response = self.model.generate_content([myfile, prompt])
             content = response.text
             print(f"DEBUG: Gemini Raw Response: {content}")
             
-            # Clean up potential markdown formatting
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-                
-            return json.loads(content.strip())
+            # Robust JSON extraction using regex
+            # Finds the first block starting with { and ending with }
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    return json.loads(json_str)
+                except json.JSONDecodeError as je:
+                    print(f"JSON Decode Error: {je}")
+                    # Try to fix common issues (e.g., trailing commas)
+                    # For now, just raise with a clear message
+                    raise Exception(f"Failed to parse JSON from Gemini response. Raw: {json_str[:100]}...")
+            else:
+                raise Exception("No JSON structure found in Gemini response.")
+
         except Exception as e:
             print(f"Error calling Gemini: {e}")
             import traceback
             traceback.print_exc()
-            # Re-raise the exception to let the user know extraction failed
             raise Exception(f"Failed to extract data from PDF: {str(e)}")
