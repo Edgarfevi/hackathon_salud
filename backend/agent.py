@@ -131,6 +131,18 @@ class MedicalRecordExtractor:
                - "Cansancio", "Fatiga", "Asthenia" -> Fatigue=1.
                - "Prurito", "Picor" -> Itching=5.0.
 
+            7. **Complex Narrative Analysis (Advanced Reasoning):**
+               - **Read the ENTIRE document:** Diagnoses often change from "Enfermedad actual" to "Juicio diagnóstico". Use the *final* confirmed diagnosis.
+               - **Implicit Conditions (Examples):**
+                 - "Síndrome de Good-Pasture" -> Implies Renal involvement (check for Hematuria/Proteinuria context).
+                 - "Rabdomiólisis" -> Check for acute kidney injury context.
+                 - "Hipertensión secundaria" -> HistoryHTN=1.
+                 - "Cor pulmonale" -> HistoryCHD=1.
+                 - "Intoxicación digitálica" -> Implies Heart Failure/Arrhythmia (HistoryCHD/Vascular).
+               - **Medication Implications:**
+                 - "Digoxina" -> Implies Heart Failure/Arrhythmia.
+                 - "CPAP" -> Implies Sleep Apnea (often associated with HTN/Obesity).
+
             The clinical history is in SPANISH. Translate medical terms accurately to the required JSON keys.
                
             EXTRACT EVERYTHING. BE A CLINICAL DETECTIVE. DO NOT INVENT DATA.
