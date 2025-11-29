@@ -377,66 +377,34 @@ function renderRadarChart(result) {
 
     // Definir métricas clave y sus rangos "normales" aproximados para normalizar
     // Normalizaremos tal que 50 sea el valor "óptimo/medio", 0 muy bajo, 100 muy alto.
-    // Esto es una simplificación para visualización.
+    // Top 5 contributors
+    const topContributors = contributors.slice(0, 5);
+    const labels = topContributors.map(c => formatFeatureName(c.feature));
+    // Clamp values to 100 max for visual consistency
+    const data = topContributors.map(c => Math.min(Math.abs(c.shap_value) * 100, 100));
 
-    const metrics = [
-        { label: 'Presión Sistólica', value: getData('SystolicBP'), max: 180, optimal: 120 },
-        { label: 'Glucosa', value: getData('FastingBloodSugar'), max: 200, optimal: 90 },
-        { label: 'HbA1c', value: getData('HbA1c'), max: 12, optimal: 5.5 },
-        { label: 'Creatinina', value: getData('SerumCreatinine'), max: 5, optimal: 0.9 },
-        { label: 'IMC', value: getData('BMI'), max: 40, optimal: 22 },
-        // GFR es inverso: mayor es mejor. Lo invertiremos para el gráfico (100 - valor) o lo mostramos directo
-        // Para consistencia visual (mayor = más riesgo), usaremos 1/GFR o similar, 
-        // PERO para un radar chart médico, mejor mostrar valores normalizados donde el centro es 0 y el borde es max.
-        // Vamos a simplificar: mostrar % del valor máximo peligroso.
-    ];
-
-    const labels = metrics.map(m => m.label);
-    const dataValues = metrics.map(m => {
-        // Normalización simple: (valor / max) * 100
-        let val = (m.value / m.max) * 100;
-        return Math.min(Math.max(val, 0), 100); // Clamp 0-100
-    });
-
-    // Destruir gráfico anterior si existe
-    if (radarChartInstance) {
+    if (radarChartInstance) { // Use radarChartInstance here
         radarChartInstance.destroy();
     }
 
-    radarChartInstance = new Chart(ctx, {
+    radarChartInstance = new Chart(ctx, { // Assign to radarChartInstance
         type: 'radar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Estado del Paciente',
-                data: dataValues,
-                fill: true,
-                backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                borderColor: 'rgb(37, 99, 235)',
-                pointBackgroundColor: 'rgb(37, 99, 235)',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: 'rgb(37, 99, 235)'
-            }, {
-                label: 'Límite de Riesgo',
-                data: [70, 70, 60, 40, 75], // Valores arbitrarios de referencia visual
-                fill: true,
-                backgroundColor: 'rgba(255, 99, 132, 0.0)',
-                borderColor: 'rgba(255, 99, 132, 0.5)',
-                borderDash: [5, 5],
-                pointRadius: 0
+                label: 'Impacto en el Riesgo',
+                data: data,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(255, 99, 132, 1)'
             }]
         },
         options: {
-            elements: {
-                line: {
-                    borderWidth: 3
-                }
-            },
             scales: {
                 r: {
                     angleLines: {
-                        display: true
+                        display: false
                     },
                     suggestedMin: 0,
                     suggestedMax: 100,

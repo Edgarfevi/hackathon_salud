@@ -28,46 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize model
-model = KidneyDiseaseModel()
-
-# Load model on startup if exists, otherwise we might need to trigger training
-@app.on_event("startup")
-async def startup_event():
-    print("Startup: Initializing model...")
-    
-    # Correct path for NEW dataset
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Try multiple locations for robustness
-    possible_paths = [
-        os.path.join(current_dir, "archive/merged_kidney_data (1).csv"), # Newest dataset
-        os.path.join(current_dir, "../backend/archive/merged_kidney_data (1).csv"),
-        "backend/archive/merged_kidney_data (1).csv",
-        os.path.join(current_dir, "archive/normalized_chronic_kidney_disease_data_fin.csv"),
-        os.path.join(current_dir, "../backend/archive/normalized_chronic_kidney_disease_data_fin.csv"),
-        "backend/archive/normalized_chronic_kidney_disease_data_fin.csv"
-    ]
-    
-    data_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            data_path = path
-            break
-            
-    if data_path:
-        print(f"Found dataset at {data_path}. Training fresh model for maximum accuracy...")
-        try:
-            model.train(data_path)
-        except Exception as e:
-            print(f"CRITICAL ERROR during training: {e}")
-            print("Attempting to load saved model as fallback...")
-            if not model.load_model():
-                print("WARNING: Running without ML model. Only Clinical Rules will work.")
-    else:
-        print("Dataset not found. Attempting to load saved model...")
-        if not model.load_model():
-            print("WARNING: Running without ML model. Only Clinical Rules will work.")
-
 class PatientData(BaseModel):
     Age: int
     Gender: int
@@ -131,19 +91,15 @@ class PatientData(BaseModel):
 
 @app.post("/analyze_pdf")
 async def analyze_pdf(file: UploadFile = File(...)):
+    temp_file = f"temp_{file.filename}"
     try:
         # Save temp file
-        temp_file = f"temp_{file.filename}"
         with open(temp_file, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
         # Extract data
         extractor = MedicalRecordExtractor()
-        # text = extractor.extract_text_from_pdf(temp_file) # No longer needed
         patient_data_dict = extractor.extract_patient_data(temp_file)
-        
-        # Clean up
-        os.remove(temp_file)
         
         # Predict
         result = model.predict(patient_data_dict)
@@ -162,9 +118,12 @@ async def analyze_pdf(file: UploadFile = File(...)):
         }
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Ensure temp file is removed
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
 
 @app.get("/")
 def read_root():

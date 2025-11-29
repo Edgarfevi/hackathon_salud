@@ -5,9 +5,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
-      - GEMINI_API_KEY=AIzaSyDZ5DgEU_nwIfqnA16RYmHkj-jnkt917G0
 
   frontend:
     build: ./frontend

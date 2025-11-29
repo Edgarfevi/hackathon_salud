@@ -25,10 +25,37 @@ Thumbs.db
 *.tmp
 *.log
 test_*.py
+.venvsalud2/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+test_*.py
 analyze_*.py
 compare_*.py
 show_*.py
 verify_*.py
 latest_metrics.txt
 test_payload.json
-/
+.env

@@ -200,5 +200,13 @@ class MedicalRecordExtractor:
             "OccupationalExposureChemicals": 0,
             "MedicalCheckupsFrequency": 2.0,
             "MedicationAdherence": 8.0,
-            "HealthLiteracy": 5.0
+            "HealthLiteracy": 5.0,
+            # New fields
+            "HistoryDiabetes": 1,
+            "HistoryCHD": 0,
+            "HistoryVascular": 0,
+            "HistoryHTN": 1,
+            "HistoryDLD": 0,
+            "HistoryObesity": 0,
+            "HTNmeds": 1
         }
