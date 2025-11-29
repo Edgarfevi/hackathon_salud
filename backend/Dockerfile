@@ -1,9 +1,4 @@
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# Install system dependencies (if any needed for scikit-learn/numpy)
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 

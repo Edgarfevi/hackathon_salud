@@ -90,7 +90,7 @@ document.getElementById('riskForm').addEventListener('submit', async function (e
     }
 
     try {
-        const response = await fetch('http://localhost:8000/predict', {
+        const response = await fetch('http://localhost:8001/predict', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -566,7 +566,7 @@ async function handleFileUpload(file) {
     formData.append('file', file);
 
     try {
-        const response = await fetch('http://localhost:8000/analyze_pdf', {
+        const response = await fetch('http://localhost:8001/analyze_pdf', {
             method: 'POST',
             body: formData
         });

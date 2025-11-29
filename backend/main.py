@@ -110,18 +110,13 @@ async def analyze_pdf(file: UploadFile = File(...)):
         extractor = MedicalRecordExtractor()
         patient_data_dict = extractor.extract_patient_data(temp_file)
         
-        # 2. Predicción de Riesgo
-        result = model.predict(patient_data_dict)
+        # 1. Extracción con IA (Gemini)
+        extractor = MedicalRecordExtractor()
+        patient_data_dict = extractor.extract_patient_data(temp_file)
         
-        if "error" in result:
-             raise Exception(result["error"])
-        
+        # Return only extracted data for the frontend to populate the form
         return {
-            "extracted_data": patient_data_dict,
-            "risk_class": int(result["prediction"]),
-            "risk_level": "Alto" if result["prediction"] == 1 else "Bajo",
-            "probability": float(result["probability"]),
-            "contributors": result.get("contributors", [])
+            "extracted_data": patient_data_dict
         }
         
     except Exception as e:

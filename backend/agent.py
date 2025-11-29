@@ -20,8 +20,7 @@ class MedicalRecordExtractor:
         Returns a dictionary matching the PatientData model.
         """
         if not self.model:
-            print("Warning: GEMINI_API_KEY not found. Returning mock data.")
-            return self._get_mock_data()
+            raise Exception("GEMINI_API_KEY not found. Cannot extract data without AI.")
 
         try:
             # Upload the file to Gemini
@@ -30,20 +29,22 @@ class MedicalRecordExtractor:
             print(f"DEBUG: File uploaded: {myfile.name}")
 
             prompt = """
-            You are a medical assistant. Extract the following patient data from the PDF document provided.
-            Return ONLY a valid JSON object matching this structure (use reasonable defaults or 0 if not found, but try to infer from context).
-            Do not include markdown formatting like ```json ... ```. Just the raw JSON.
+            You are an expert medical data extractor. Your goal is to extract structured patient data from the provided clinical history PDF (which may be in Spanish or English).
+            
+            EXTRACT EVERY POSSIBLE FIELD. If a value is not explicitly stated, TRY TO INFER IT from context, medications, diagnoses, or notes.
+            
+            Return ONLY a valid JSON object matching this structure. Do not include markdown formatting.
             
             {
                 "Age": int,
                 "Gender": int (0=Male, 1=Female),
                 "Ethnicity": int (0=Caucasian, 1=African American, 2=Asian, 3=Hispanic, 4=Other),
-                "SocioeconomicStatus": int (0=Low, 1=Middle, 2=High),
-                "EducationLevel": int (0=None, 1=HighSchool, 2=Bachelor, 3=Higher),
+                "SocioeconomicStatus": int (0=Low, 1=Middle, 2=High) (Infer from occupation/address if possible, else 1),
+                "EducationLevel": int (0=None, 1=HighSchool, 2=Bachelor, 3=Higher) (Infer from occupation if possible, else 1),
                 "BMI": float,
                 "Smoking": int (0=No, 1=Yes),
-                "AlcoholConsumption": float (0-20),
-                "PhysicalActivity": float (0-10),
+                "AlcoholConsumption": float (0-20 units/week),
+                "PhysicalActivity": float (0-10 hours/week),
                 "FamilyHistoryKidneyDisease": int (0=No, 1=Yes),
                 "FamilyHistoryHypertension": int (0=No, 1=Yes),
                 "FamilyHistoryDiabetes": int (0=No, 1=Yes),
@@ -51,7 +52,10 @@ class MedicalRecordExtractor:
                 "UrinaryTractInfections": int (0=No, 1=Yes),
                 "HistoryHTN": int (0=No, 1=Yes) (Personal History of Hypertension),
                 "HistoryDiabetes": int (0=No, 1=Yes) (Personal History of Diabetes),
-                "HistoryCHD": int (0=No, 1=Yes) (Personal History of Coronary Heart Disease),
+                "HistoryCHD": int (0=No, 1=Yes) (Coronary Heart Disease),
+                "HistoryVascular": int (0=No, 1=Yes) (Vascular Disease),
+                "HistoryDLD": int (0=No, 1=Yes) (Dyslipidemia/High Cholesterol),
+                "HistoryObesity": int (0=No, 1=Yes),
                 "SystolicBP": int,
                 "DiastolicBP": int,
                 "FastingBloodSugar": float,
@@ -72,66 +76,68 @@ class MedicalRecordExtractor:
                 "CholesterolTriglycerides": float,
                 "ACEInhibitors": int (0=No, 1=Yes),
                 "Diuretics": int (0=No, 1=Yes),
-                "NSAIDsUse": float (0-10),
+                "NSAIDsUse": float (0-10 frequency),
                 "Statins": int (0=No, 1=Yes),
                 "AntidiabeticMedications": int (0=No, 1=Yes),
+                "HTNmeds": int (0=No, 1=Yes) (Hypertension Meds),
                 "Edema": int (0=No, 1=Yes),
                 "Fatigue": int (0=No, 1=Yes),
                 "NauseaVomiting": int (0=No, 1=Yes),
                 "MuscleCramps": int (0=No, 1=Yes),
-                "Itching": float (0-10),
+                "Itching": float (0-10 intensity),
                 "HeavyMetalsExposure": int (0=No, 1=Yes),
                 "OccupationalExposureChemicals": int (0=No, 1=Yes),
-                "MedicalCheckupsFrequency": float (0-4),
-                "MedicationAdherence": float (0-10),
-                "HealthLiteracy": float (0-10)
+                "MedicalCheckupsFrequency": float (0-4 visits/year),
+                "MedicationAdherence": float (0-10 scale),
+                "HealthLiteracy": float (0-10 scale)
             }
 
-            IMPORTANT INSTRUCTIONS FOR INFERENCE AND CALCULATION:
-            You MUST infer missing numerical data from qualitative descriptions using these rules:
+            CRITICAL INFERENCE RULES (Apply these aggressively):
 
-            1. **BMI (Body Mass Index):**
-               - If text says "Obesidad", "Obesidad troncular", or "Obese", and no weight/height is given, ESTIMATE BMI = 32.0.
-               - If "Sobrepeso" (Overweight), ESTIMATE BMI = 27.0.
-               - If "Normopeso" (Normal weight), ESTIMATE BMI = 22.0.
+            1. **Demographics:**
+               - **Gender:** Look for "Masculino", "Hombre", "Varón", "Male" -> 0. "Femenino", "Mujer", "Female" -> 1.
+               - **Ethnicity:** If "Hispano", "Latino" -> 3. If "Blanco", "Caucásico" -> 0. Default to 3 if name/location implies Hispanic context.
 
-            2. **Blood Pressure (BP):**
-               - If "Hipertensión" (HTA) or "High Blood Pressure" is mentioned, but no numbers are given:
-                 - If "control deficiente" or "mal control", ESTIMATE SystolicBP = 150, DiastolicBP = 95.
-                 - If "buen control" or "controlled", ESTIMATE SystolicBP = 130, DiastolicBP = 85.
-                 - Default (if unspecified status): ESTIMATE SystolicBP = 145, DiastolicBP = 90.
+            2. **BMI & Obesity:**
+               - Calculate BMI if Weight (kg) and Height (m) are present: Weight / (Height^2).
+               - If "Obesidad" or "Obesity" mentioned -> HistoryObesity=1. Estimate BMI=32.0 if missing.
+               - If "Sobrepeso" or "Overweight" -> Estimate BMI=27.0.
 
-            3. **Lab Conversions (CALCULATE THESE):**
-               - **BUN:** If "Urea" is given (mg/dL) but BUN is missing, CALCULATE: BUN = Urea / 2.14.
-               - **HbA1c:** If only "Glucose" (Glucosa) is given, estimate HbA1c: HbA1c = (Glucose + 46.7) / 28.7 (approx).
-               - **LDL/HDL:** If only Total Cholesterol is given, estimate LDL = Total * 0.65, HDL = Total * 0.20 (rough estimate if missing).
+            3. **Conditions (History):**
+               - **Diabetes:** "Diabetes Mellitus", "DM2", "DM1", "Diabético" -> HistoryDiabetes=1.
+               - **Hypertension:** "HTA", "Hipertensión", "High Blood Pressure" -> HistoryHTN=1.
+               - **Dyslipidemia:** "Dislipemia", "Colesterol alto", "Hyperlipidemia" -> HistoryDLD=1.
+               - **Vascular/Heart:** "Infarto", "Ictus", "ACV", "Angina", "Coronary" -> HistoryCHD=1 or HistoryVascular=1.
 
-            4. **History & Lifestyle:**
-               - **Diabetes:** If "No Diabetes" -> HistoryDiabetes=0. If "Diabetes" or "Diabetic" -> HistoryDiabetes=1.
-               - **Smoking:** If "Ex-fumador" (Ex-smoker) -> Smoking=0 (or 1 if recent). If "Fumador" -> Smoking=1.
-               - **Physical Activity:** 
-                 - "Vida activa" / "Active life" -> 7.0
-                 - "Sedentario" / "Sedentary" -> 1.0
-                 - "Moderate" -> 4.0
+            4. **Medications (Infer usage):**
+               - **ACE Inhibitors:** Enalapril, Lisinopril, Ramipril, Perindopril -> ACEInhibitors=1.
+               - **Statins:** Atorvastatina, Simvastatina, Rosuvastatina -> Statins=1.
+               - **Diuretics:** Furosemida, Hidroclorotiazida, Espironolactona -> Diuretics=1.
+               - **Antidiabetics:** Metformina, Insulina, Sitagliptina, Empagliflozina -> AntidiabeticMedications=1.
+               - **HTN Meds:** Any of the above BP meds or Amlodipino, Losartan, Valsartan -> HTNmeds=1.
 
-            5. **Medications & Symptoms (Infer from context):**
-               - **NSAIDs (AINEs):** If "AINEs", "Ibuprofeno", "Naproxeno", "Diclofenaco" mentioned -> NSAIDsUse = 1 (or higher if chronic).
-               - **Edema:** If "Edema", "Hinchazón", "Fovea" mentioned -> Edema = 1. If "Sin edemas" -> Edema = 0.
-               - **Fatigue:** If "Fatiga", "Cansancio", "Debilidad", "Asthenia" -> Fatigue = 1.
-               - **Itching:** If "Picor", "Prurito", "Rascado" -> Itching = 1.
-               - **Muscle Cramps:** If "Calambres" -> MuscleCramps = 1.
-               - **ACE Inhibitors:** If "IECA", "Enalapril", "Lisinopril", "Ramipril" -> ACEInhibitors = 1.
+            5. **Labs & Vitals (Infer/Estimate):**
+               - **BP:** If "Normotenso" -> 120/80. If "Hipertenso mal controlado" -> 150/95.
+               - **BUN:** If only Urea is given: BUN = Urea / 2.14.
+               - **HbA1c:** If missing but Glucose > 126 (Diabetic) -> Estimate 7.5. If Glucose < 100 -> Estimate 5.0.
+               - **Cholesterol:** If missing, estimate based on HistoryDLD (e.g., Total=240 if DLD=1, else 190).
 
-            6. **Specific Lab Mappings:**
-               - **ProteinInUrine:** Look for "Proteínas en orina", "Proteinuria", or "Proteínas" in urine section.
-               - **ACR:** Look for "Microalbuminuria", "Cociente Albúmina/Creatinina".
-               - **Hemoglobin:** Look for "Hb", "Hemoglobina".
+            6. **Symptoms:**
+               - Look for "Edemas", "Hinchazón" -> Edema=1.
+               - "Cansancio", "Fatiga", "Asthenia" -> Fatigue=1.
+               - "Prurito", "Picor" -> Itching=5.0.
 
-            7. **Defaults for Missing Vitals (Only if NO text clue exists):**
-               - Temperature: 36.5
-               - Heart Rate: 75
+            7. **Defaults (Use ONLY if absolutely no clue found):**
+               - Age: 50
+               - Gender: 0
+               - Ethnicity: 3
+               - BMI: 25.0
+               - BP: 120/80
+               - Glucose: 90
+               - Creatinine: 1.0
+               - GFR: 90
                
-            EXTRACT AS MUCH AS POSSIBLE. DO NOT RETURN 0 IF YOU CAN INFER A PLAUSIBLE VALUE FROM CONTEXT.
+            EXTRACT EVERYTHING YOU CAN. BE A DETECTIVE.
             """
 
             response = self.model.generate_content([myfile, prompt])
@@ -149,64 +155,5 @@ class MedicalRecordExtractor:
             print(f"Error calling Gemini: {e}")
             import traceback
             traceback.print_exc()
-            return self._get_mock_data()
-
-    def _get_mock_data(self) -> Dict[str, Any]:
-        """Returns mock data if AI fails or key is missing."""
-        return {
-            "Age": 65,
-            "Gender": 0,
-            "Ethnicity": 0,
-            "SocioeconomicStatus": 1,
-            "EducationLevel": 1,
-            "BMI": 28.5,
-            "Smoking": 0,
-            "AlcoholConsumption": 2.0,
-            "PhysicalActivity": 3.0,
-            "FamilyHistoryKidneyDisease": 0,
-            "FamilyHistoryHypertension": 1,
-            "FamilyHistoryDiabetes": 1,
-            "PreviousAcuteKidneyInjury": 0,
-            "UrinaryTractInfections": 0,
-            "SystolicBP": 140,
-            "DiastolicBP": 90,
-            "FastingBloodSugar": 130,
-            "HbA1c": 7.2,
-            "SerumCreatinine": 1.4,
-            "BUN": 25,
-            "GFR": 55,
-            "ProteinInUrine": 0.5,
-            "ACR": 40,
-            "SerumElectrolytesSodium": 138,
-            "SerumElectrolytesPotassium": 4.8,
-            "SerumElectrolytesCalcium": 9.2,
-            "SerumElectrolytesPhosphorus": 3.9,
-            "HemoglobinLevels": 12.5,
-            "CholesterolTotal": 210,
-            "CholesterolLDL": 130,
-            "CholesterolHDL": 45,
-            "CholesterolTriglycerides": 160,
-            "ACEInhibitors": 1,
-            "Diuretics": 0,
-            "NSAIDsUse": 1.0,
-            "Statins": 1,
-            "AntidiabeticMedications": 1,
-            "Edema": 1,
-            "Fatigue": 1,
-            "NauseaVomiting": 0,
-            "MuscleCramps": 0,
-            "Itching": 2.0,
-            "HeavyMetalsExposure": 0,
-            "OccupationalExposureChemicals": 0,
-            "MedicalCheckupsFrequency": 2.0,
-            "MedicationAdherence": 8.0,
-            "HealthLiteracy": 5.0,
-            # New fields
-            "HistoryDiabetes": 1,
-            "HistoryCHD": 0,
-            "HistoryVascular": 0,
-            "HistoryHTN": 1,
-            "HistoryDLD": 0,
-            "HistoryObesity": 0,
-            "HTNmeds": 1
-        }
+            # Re-raise the exception to let the user know extraction failed
+            raise Exception(f"Failed to extract data from PDF: {str(e)}")
