@@ -1072,22 +1072,229 @@ button {
         color: var(--primary);
     }
 
-    .upload-loading i {
-        font-size: 2rem;
+    .sidebar {
+        width: 100%;
+        padding: 1.5rem 1rem;
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 2px solid var(--border);
+        gap: 1.5rem;
     }
 
-    .hidden {
-        display: none !important;
+    .logo {
+        padding-bottom: 0;
+        border-bottom: none;
+        border-right: 2px solid var(--border);
+        padding-right: 1rem;
+        margin-right: 1rem;
     }
 
-    /* Highlight transition for auto-filled fields */
-    .highlight-transition {
-        background-color: #d4edda !important;
-        transition: background-color 0.5s ease;
-        border-color: #28a745 !important;
+    .logo span {
+        display: none;
     }
 
-    .error {
-        border-color: #dc3545 !important;
-        background-color: #f8d7da !important;
+    .progress-container {
+        flex-direction: row;
+        gap: 1rem;
     }
+
+    .step-label {
+        display: none;
+    }
+
+    .main-content {
+        padding: 2rem 1.5rem;
+        overflow-y: visible;
+    }
+
+    header {
+        margin-bottom: 2rem;
+    }
+
+    header h1 {
+        font-size: 1.75rem;
+    }
+
+    .grid-2,
+    .grid-3 {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+
+    .actions {
+        flex-direction: column-reverse;
+        gap: 1rem;
+    }
+
+    .actions button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .result-card {
+        width: 95vw;
+        padding: 2rem 1.5rem;
+    }
+}
+
+/* Explanation (XAI) */
+.explanation-container {
+    margin-top: 2rem;
+    text-align: left;
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.explanation-container.hidden {
+    display: none;
+}
+
+.explanation-container h3 {
+    font-size: 1.1rem;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.explanation-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.explanation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.explanation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+}
+
+.explanation-item:hover {
+    transform: translateX(4px);
+    border-color: var(--primary);
+}
+
+.explanation-item.impact-positive {
+    border-left: 4px solid var(--success);
+}
+
+.explanation-item.impact-negative {
+    border-left: 4px solid var(--danger);
+}
+
+.explanation-header {
+    display: flex;
+    flex-direction: column;
+}
+
+.feature-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.feature-value {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.explanation-impact {
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.impact-positive .explanation-impact {
+    color: var(--success);
+}
+
+.impact-negative .explanation-impact {
+    color: var(--danger);
+}
+
+/* Upload Zone */
+.upload-zone {
+    margin-bottom: 2rem;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8fafc;
+}
+
+.upload-zone:hover,
+.upload-zone.dragover {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+
+.upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.upload-icon {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+}
+
+.upload-zone h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.upload-zone p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.upload-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--primary);
+}
+
+.upload-loading i {
+    font-size: 2rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Highlight transition for auto-filled fields */
+.highlight-transition {
+    background-color: #d4edda !important;
+    transition: background-color 0.5s ease;
+    border-color: #28a745 !important;
+}
+
+.error {
+    border-color: #dc3545 !important;
+    background-color: #f8d7da !important;
+}
