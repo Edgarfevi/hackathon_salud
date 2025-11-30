@@ -79,7 +79,15 @@
                 <h1><i class="fa-solid fa-kidneys"></i> NephroMind</h1>
                 <p>Sistema de detección temprana de Enfermedad Renal Crónica para Atención Primaria</p>
             </header>
-
+            <div class="mode-tabs-container">
+                <button class="mode-tab active" onclick="switchMode('single')" id="tabSingle">
+                    <i class="fa-solid fa-user"></i> Evaluación Individual
+                </button>
+                <button class="mode-tab" onclick="switchMode('batch')" id="tabBatch">
+                    <i class="fa-solid fa-layer-group"></i> Análisis Masivo
+                </button>
+            </div>
+            <div id="singleModeSection">
             <!-- Case Demo Banner - CASO LAURA -->
             <div class="demo-banner" id="demoBanner">
                 <div class="demo-content">
@@ -571,6 +579,43 @@
                     </div>
                 </div>
             </form>
+            </div> <div id="batchSection" class="hidden">
+                <div class="batch-header" style="margin-bottom: 20px;">
+                    <h2><i class="fa-solid fa-layer-group"></i> Análisis Masivo de Informes</h2>
+                    <p style="color: #64748b;">Sube múltiples PDFs. El sistema calculará eGFR automáticamente y usará el modelo XGBoost.</p>
+                </div>
+
+                <div class="upload-zone" id="batchDropZone" onclick="document.getElementById('batchFileInput').click()">
+                    <div class="upload-content">
+                        <i class="fa-solid fa-file-pdf upload-icon"></i>
+                        <h3>Arrastra aquí tus informes PDF</h3>
+                        <p>Se procesarán automáticamente manteniendo los valores vacíos (Nones)</p>
+                        <input type="file" id="batchFileInput" multiple accept=".pdf" hidden>
+                    </div>
+                    <div id="batchLoading" class="hidden" style="text-align: center; color: #2563eb;">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+                        <p style="margin-top: 10px;">Procesando cola de archivos...</p>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="batch-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Riesgo</th>
+                                <th>Archivo</th>
+                                <th>Paciente</th>
+                                <th>Datos Clave</th>
+                                <th>Probabilidad</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchResultsBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+            
 
             <!-- Statistics Panel -->
             <div id="statsPanel" class="stats-panel hidden">

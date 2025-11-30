@@ -1573,6 +1573,231 @@ document.addEventListener('DOMContentLoaded', () => {
         observer.observe(resultCard, { attributes: true, attributeFilter: ['class'] });
     }
 });
+// ========================================
+// PESTAÑAS Y MODOS DE VISTA
+// ========================================
+
+function switchMode(mode) {
+    const singleSection = document.getElementById('singleModeSection');
+    const batchSection = document.getElementById('batchSection');
+    const tabSingle = document.getElementById('tabSingle');
+    const tabBatch = document.getElementById('tabBatch');
+    const resultPanel = document.getElementById('result'); 
+
+    if (mode === 'single') {
+        singleSection.classList.remove('hidden');
+        batchSection.classList.add('hidden');
+        tabSingle.classList.add('active');
+        tabBatch.classList.remove('active');
+    } else {
+        singleSection.classList.add('hidden');
+        batchSection.classList.remove('hidden');
+        tabSingle.classList.remove('active');
+        tabBatch.classList.add('active');
+        // Ocultar panel de resultados individual si estaba abierto
+        if (resultPanel) resultPanel.classList.add('hidden');
+    }
+}
+
+// ========================================
+// LÓGICA DE ANÁLISIS POR LOTES (BATCH)
+// ========================================
+
+const RIESGO_UMBRAL = 0.56;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Configuración de eventos para la zona de carga Batch
+    const dropZone = document.getElementById('batchDropZone');
+    const fileInput = document.getElementById('batchFileInput');
+
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleBatchFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleBatchFiles(e.target.files);
+        });
+    }
+});
+
+/**
+ * Procesa la cola de archivos PDF
+ */
+async function handleBatchFiles(files) {
+    const tbody = document.getElementById('batchResultsBody');
+    const loading = document.getElementById('batchLoading');
+    const content = document.querySelector('#batchDropZone .upload-content');
+    
+    // Preparar UI
+    tbody.innerHTML = ''; 
+    content.classList.add('hidden');
+    loading.classList.remove('hidden');
+
+    const pdfs = Array.from(files).filter(f => f.type === 'application/pdf');
+
+    if (pdfs.length === 0) {
+        showNotification('Por favor sube archivos PDF válidos', 'warning');
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+        return;
+    }
+
+    // Procesar uno por uno
+    for (const file of pdfs) {
+        await processOnePDF(file, tbody);
+    }
+
+    loading.classList.add('hidden');
+    content.classList.remove('hidden');
+    showNotification(`Procesados ${pdfs.length} archivos correctamente.`, 'success');
+}
+
+/**
+ * Orquesta la extracción, cálculo y predicción de un solo archivo
+ */
+async function processOnePDF(file, tbody) {
+    // 1. Crear fila placeholder
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><div class="status-dot" style="background: #e2e8f0;"></div></td>
+        <td><strong>${file.name}</strong></td>
+        <td colspan="4" style="color: #64748b;">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Analizando...
+        </td>
+    `;
+    tbody.appendChild(tr);
+
+    try {
+        const baseUrl = getApiBaseUrl();
+
+        // PASO A: Extraer datos del PDF
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const extractRes = await fetch(`${baseUrl}/analyze_pdf`, { method: 'POST', body: formData });
+        if (!extractRes.ok) throw new Error('Fallo en extracción PDF');
+        
+        const extractJson = await extractRes.json();
+        let patientData = extractJson.extracted_data || {};
+
+        // PASO B: Limpieza y Cálculo de GFR
+        // Convertir tipos y manejar Nones
+        for (let key in patientData) {
+            if (patientData[key] !== null && patientData[key] !== undefined && patientData[key] !== '') {
+                if (key === 'ProteinInUrine' && patientData[key] > 10) {
+                    patientData[key] = parseFloat((patientData[key] / 100).toFixed(2));
+                } else if (!isNaN(patientData[key])) {
+                    patientData[key] = parseFloat(patientData[key]);
+                }
+            } else {
+                patientData[key] = null;
+            }
+        }
+
+        // Calcular GFR internamente si falta
+        if (!patientData.GFR && patientData.SerumCreatinine && patientData.Age && patientData.Gender !== null) {
+            patientData.GFR = calculateBatchGFR(patientData.Age, patientData.Gender, patientData.SerumCreatinine);
+        }
+
+        // PASO C: Predicción (XGBoost)
+        const predictRes = await fetch(`${baseUrl}/predict`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patientData)
+        });
+
+        if (!predictRes.ok) throw new Error('Error en predicción IA');
+        const prediction = await predictRes.json();
+
+        // PASO D: Renderizar Resultado
+        updateBatchRow(tr, file.name, patientData, prediction);
+
+    } catch (error) {
+        console.error(error);
+        tr.innerHTML = `
+            <td><div class="status-dot" style="background: gray;"></div></td>
+            <td>${file.name}</td>
+            <td colspan="4" style="color: #ef4444;">Error: ${error.message}</td>
+        `;
+    }
+}
+
+function updateBatchRow(tr, fileName, data, result) {
+    const prob = result.probability;
+    // Lógica Semáforo Estricta: > 0.56 es ROJO
+    const isHighRisk = prob > RIESGO_UMBRAL; 
+    
+    const dotClass = isHighRisk ? 'dot-red' : 'dot-green';
+    const riskText = isHighRisk ? 'Alto Riesgo' : 'Bajo Riesgo';
+    
+    // Formateo
+    const edad = data.Age ? `${data.Age} años` : '?';
+    const genero = data.Gender === 1 ? 'F' : (data.Gender === 0 ? 'M' : '?');
+    const gfr = data.GFR ? `eGFR: ${data.GFR.toFixed(1)}` : 'eGFR: --';
+    const creat = data.SerumCreatinine ? `Cr: ${data.SerumCreatinine}` : 'Cr: --';
+
+    tr.innerHTML = `
+        <td class="text-center">
+            <div class="status-dot ${dotClass}" title="${riskText}"></div>
+        </td>
+        <td>
+            <div style="font-weight: 600; color: #334155;">${fileName}</div>
+        </td>
+        <td>
+            <div>${edad}, ${genero}</div>
+        </td>
+        <td>
+            <div class="batch-key-data">${gfr} | ${creat}</div>
+        </td>
+        <td>
+            <span style="font-weight: bold; color: ${isHighRisk ? '#dc2626' : '#16a34a'}">
+                ${(prob * 100).toFixed(1)}%
+            </span>
+        </td>
+        <td>
+            <button class="btn-small" style="padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; background: white;" 
+                onclick='reviewBatchPatient(${JSON.stringify(data).replace(/'/g, "&#39;")})'>
+                <i class="fa-solid fa-magnifying-glass"></i> Ver
+            </button>
+        </td>
+    `;
+}
+
+function calculateBatchGFR(age, gender, creatinine) {
+    if (!age || !creatinine) return null;
+    const kappa = gender === 1 ? 0.7 : 0.9;
+    const alpha = gender === 1 ? -0.241 : -0.302;
+    const minRatio = Math.min(creatinine / kappa, 1.0);
+    const maxRatio = Math.max(creatinine / kappa, 1.0);
+    let egfr = 142 * Math.pow(minRatio, alpha) * Math.pow(maxRatio, -1.200) * Math.pow(0.9938, age);
+    if (gender === 1) egfr *= 1.012;
+    return parseFloat(egfr.toFixed(1));
+}
+
+function reviewBatchPatient(data) {
+    resetForm();
+    switchMode('single'); // Cambia a la pestaña principal automáticamente
+    showStep(1);
+    
+    // Pequeño delay para asegurar que la UI cambió antes de poblar
+    setTimeout(() => {
+        populateForm(data);
+        showNotification('Datos cargados. Revise y presione "Analizar".', 'info');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+}
 
 // Export functions globally
 window.loadLauraCase = loadLauraCase;
